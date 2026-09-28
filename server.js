@@ -138,7 +138,7 @@ app.post('/api/ajukan-surat', async (req, res) => {
             formData: payload,
             signedFileUrl: null,
             status: 'Diproses',
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
+            createdAt: require("firebase-admin/firestore").FieldValue.serverTimestamp()
         };
 
         // Simpan permanen ke Firestore collection 'surat_keluar'
