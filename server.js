@@ -364,7 +364,15 @@ async function getRoomListAsync() {
     }
 }
 
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    message: "SIRAT server is running"
+  });
+});
+
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`KEREN: Server sukses berjalan di port ${PORT}`);
 });
