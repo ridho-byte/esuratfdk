@@ -1,7 +1,10 @@
 const { initializeApp, cert } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
-const serviceAccount = require("./serviceAccountKey.json");
+// Membaca kredensial dari environment variable Railway (aman dan tidak perlu file fisik)
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
+  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) 
+  : require("./serviceAccountKey.json"); // Tetap bisa pakai file lokal untuk testing di laptop
 
 initializeApp({
   credential: cert(serviceAccount),
