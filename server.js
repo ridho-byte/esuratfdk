@@ -1,10 +1,12 @@
 const { initializeApp, cert } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
 // Membaca kredensial dari environment variable Railway (aman dan tidak perlu file fisik)
 const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
   ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) 
-  : require("./serviceAccountKey.json"); // Tetap bisa pakai file lokal untuk testing di laptop
+  : require("./serviceAccountKey.json");
+
+console.log("Firebase Project ID:", serviceAccount.project_id);
 
 initializeApp({
   credential: cert(serviceAccount),
@@ -138,7 +140,7 @@ app.post('/api/ajukan-surat', async (req, res) => {
             formData: payload,
             signedFileUrl: null,
             status: 'Diproses',
-            createdAt: require("firebase-admin/firestore").FieldValue.serverTimestamp()
+            createdAt: FieldValue.serverTimestamp()
         };
 
         // Simpan permanen ke Firestore collection 'surat_keluar'
