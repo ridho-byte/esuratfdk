@@ -365,4 +365,4 @@ async function getRoomListAsync() {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server berjalan di port ${PORT} dengan integrasi Firebase Cloud.`));
+server.listen(PORT, () => console.log(`Server berjalan di port ${PORT}`));
