@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Layanan Surat UIN Sunan Gunung Djati</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+
+    <style>
+        .paper-doc {
+            font-family: 'Times New Roman', Times, serif;
+            background: white;
+            padding: 35px 45px;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            color: black;
+            line-height: 1.4;
+            width: 100%;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .resizable-ttd {
+            touch-action: none;
+            user-select: none;
+            cursor: move;
+            position: absolute;
+            z-index: 10;
+            box-sizing: border-box;
+            border: 1px dashed #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+            display: inline-block;
+        }
+        .resizable-ttd:hover { border-color: #2563eb; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans">
+
+    <!-- LOGIN & REGISTER VIEW -->
+    <div id="auth-view" class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white p-8 rounded-xl shadow-md w-full max-w-md">
+            <h2 class="text-2xl font-bold text-center text-slate-800 mb-1">Sistem Pelayanan Surat</h2>
+            <p class="text-center text-slate-500 mb-6 text-xs">Fakultas Dakwah dan Komunikasi - UIN SGD Bandung</p>
+            
+            <!-- TAB SWITCHER -->
+            <div class="flex border-b mb-6">
+                <button id="tab-login-btn" onclick="switchAuthTab('login')" class="w-1/2 py-2 text-center font-bold text-sm text-blue-600 border-b-2 border-blue-600 focus:outline-none">
+                    Login
+                </button>
+                <button id="tab-register-btn" onclick="switchAuthTab('register')" class="w-1/2 py-2 text-center font-bold text-sm text-slate-400 border-b-2 border-transparent hover:text-slate-600 focus:outline-none">
+                    Daftar Mahasiswa
+                </button>
+            </div>
+
+            <!-- FORM LOGIN -->
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Username / NIM</label>
+                    <input type="text" id="login-username" required placeholder="NIM Mahasiswa / fdkuinbandung" class="mt-1 w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Password</label>
+                    <input type="password" id="login-password" required placeholder="******" class="mt-1 w-full p-2.5 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition">
+                    Masuk
+                </button>
+            </form>
+
+            <!-- FORM REGISTER MAHASISWA -->
+            <form id="register-form" class="space-y-3 hidden">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700">Nama Lengkap Mahasiswa</label>
+                    <input type="text" id="reg-nama" required placeholder="Muhamad Ridho" class="mt-1 w-full p-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700">NIM</label>
+                    <input type="text" id="reg-nim" required placeholder="1244060082" class="mt-1 w-full p-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700">Program Studi / Jurusan</label>
+                    <select id="reg-jurusan" class="mt-1 w-full p-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        <option value="Bimbingan Konseling Islam">Bimbingan Konseling Islam</option>
+                        <option value="Komunikasi Penyiaran Islam">Komunikasi Penyiaran Islam</option>
+                        <option value="Manajemen Dakwah">Manajemen Dakwah</option>
+                        <option value="Pengembangan Masyarakat Islam">Pengembangan Masyarakat Islam</option>
+                        <option value="Ilmu Komunikasi Bidang Jurnalistik">Ilmu Komunikasi Bidang Jurnalistik</option>
+                        <option value="Ilmu Komunikasi Bidang Humas">Ilmu Komunikasi Bidang Humas</option>
+                        <option value="Manajemen Haji dan Umrah">Manajemen Haji dan Umrah</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700">Email</label>
+                    <input type="email" id="reg-email" required placeholder="mahasiswa@uinsgd.ac.id" class="mt-1 w-full p-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700">Password</label>
+                    <input type="password" id="reg-password" required placeholder="******" class="mt-1 w-full p-2 border rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg text-xs transition mt-2">
+                    Daftar Sekarang
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard-view" class="hidden">
+        <nav class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center shadow-lg">
+            <div>
+                <h1 class="text-lg font-bold">Portal E-Surat Fakultas Dakwah & Komunikasi</h1>
+                <p id="user-info" class="text-xs text-slate-300"></p>
+            </div>
+            <button onclick="location.reload()" class="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded-md transition">Logout</button>
+        </nav>
+
+        <div class="max-w-7xl mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- PANEL KIRI: FORM MAHASISWA -->
+            <div class="md:col-span-1 space-y-6">
+                <div id="form-mahasiswa-panel" class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-800 mb-3 text-base">Buat Permohonan Surat</h3>
+                    <form id="form-surat-mahasiswa" class="space-y-3">
+                        <div>
+                            <label class="text-xs text-slate-600 font-semibold">Pilih Jenis Surat</label>
+                            <select id="mhs-jenis-surat" onchange="renderDynamicFormFields()" class="w-full p-2 border rounded text-xs mt-1 bg-slate-50 font-medium">
+                                <option value="Surat Keterangan Verval">Surat Keterangan Verval (PDDIKTI/Ijazah)</option>
+                                <option value="Surat Keterangan Kelakuan Baik">Surat Keterangan Kelakuan Baik</option>
+                                <option value="Surat Keterangan Tidak Menerima Beasiswa">Surat Keterangan Tidak Menerima Beasiswa</option>
+                                <option value="Surat Rekomendasi">Surat Rekomendasi</option>
+                                <option value="Permohonan Izin Praktik Mata Kuliah">Permohonan Izin Praktik Mata Kuliah</option>
+                                <option value="Permohonan Izin Observasi Lapangan">Permohonan Izin Observasi Lapangan</option>
+                                <option value="Permohonan Izin Riset/Survey/Konsultasi">Permohonan Izin Riset/Survey/Konsultasi</option>
+                                <option value="Surat Izin Magang/Job Training/PPM Individu">Surat Izin Magang/Job Training/PPM Individu</option>
+                                <option value="Surat Izin Kelompok PMK/Magang/Job Training/PPM">Surat Izin Kelompok PMK/Magang/Job Training/PPM</option>
+                                <option value="Surat Keterangan Aktif Kuliah (Non-ASN)">Surat Keterangan Aktif Kuliah (Non-ASN)</option>
+                                <option value="Surat Keterangan Aktif Kuliah (Anak PNS/TNI/POLRI)">Surat Keterangan Aktif Kuliah (Anak PNS/TNI/POLRI)</option>
+                            </select>
+                        </div>
+
+                        <!-- DATA UTAMA PERIODE & TANGGAL -->
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <label class="text-xs text-slate-600 font-semibold">Bulan Ke</label>
+                                <select id="mhs-bulan-ke" class="w-full p-2 border rounded text-xs mt-1 bg-white">
+                                    <option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09" selected>09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs text-slate-600 font-semibold">Tahun</label>
+                                <input type="text" id="mhs-tahun" value="2026" required class="w-full p-2 border rounded text-xs mt-1">
+                            </div>
+                            <div>
+                                <label class="text-xs text-slate-600 font-semibold">Tanggal Surat</label>
+                                <input type="text" id="mhs-tanggal-surat" value="28 September 2026" required class="w-full p-2 border rounded text-xs mt-1">
+                            </div>
+                        </div>
+
+                        <!-- INPUT DINAMIS SESUAI JENIS SURAT -->
+                        <div id="dynamic-form-fields" class="space-y-3 border-t pt-2 mt-2"></div>
+
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded transition">
+                            Generate & Kirim ke Admin
+                        </button>
+                    </form>
+                </div>
+
+                <!-- CHAT REALTIME PRIVAT BERBASIS WHATSAPP -->
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col h-[400px]">
+                    <h3 class="font-bold text-slate-800 mb-2 text-sm border-b pb-2 flex justify-between items-center">
+                        <span>Diskusi Pesan (Private)</span>
+                        <span id="chat-target-header" class="text-xs text-blue-600 font-normal"></span>
+                    </h3>
+
+                    <!-- FITUR WHATSAPP ADMIN: DAFTAR MAHASISWA CHAT -->
+                    <div id="admin-chat-list" class="hidden mb-2 bg-slate-100 p-1.5 rounded overflow-x-auto whitespace-nowrap space-x-1 border">
+                        <!-- List Mahasiswa akan di-render di sini -->
+                    </div>
+
+                    <div id="chat-messages" class="flex-1 overflow-y-auto space-y-2 p-2 bg-slate-50 rounded mb-3 text-xs"></div>
+                    
+                    <form id="chat-form" class="flex gap-2">
+                        <input type="text" id="chat-input" placeholder="Ketik pesan..." required class="flex-1 p-2 border rounded text-xs outline-none focus:ring-1 focus:ring-blue-500">
+                        <button type="submit" class="bg-blue-600 text-white px-3 py-2 rounded text-xs font-medium hover:bg-blue-700">Kirim</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- PANEL KANAN: DAFTAR SURAT -->
+            <div class="md:col-span-2 bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center border-b pb-2 mb-4">
+                    <h3 class="font-bold text-slate-800 text-base">Daftar Pengajuan Surat</h3>
+                    <span id="surat-scope-tag" class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded font-medium"></span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-100 text-slate-600 uppercase text-xs">
+                            <tr>
+                                <th class="p-3">Pemohon</th>
+                                <th class="p-3">Detail Surat</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3">Aksi / Dokumen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="surat-table-body" class="divide-y divide-slate-200">
+                            <tr><td colspan="4" class="text-center py-4 text-slate-400">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODAL EDITOR ADMIN -->
+    <div id="admin-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-xl max-w-5xl w-full p-6 shadow-2xl my-8 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="text-lg font-bold text-slate-800">Verifikasi, Beri Nomor & TTD Digital (Drag & Resize)</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+            </div>
+            
+            <input type="hidden" id="modal-surat-id">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs font-semibold text-slate-700">Nomor Surat Resmi</label>
+                        <input type="text" id="input-no-surat" value="4658" oninput="updateNomorLive()" class="w-full p-2 border rounded text-sm mt-1 focus:ring-2 focus:ring-blue-500 outline-none font-bold">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-slate-700">Pilih TTD Pejabat / Upload TTD</label>
+                        <select id="select-ttd-pejabat" onchange="applyTtdPejabat()" class="w-full p-2 border rounded text-xs mt-1 bg-slate-50">
+                            <option value="dekan">Dekan (Prof. Dr. H. Enjang, M.Si., M.Ag.)</option>
+                            <option value="wd3">Wakil Dekan III (Dr. H. Asep Shodiqin, M.Ag.)</option>
+                            <option value="wd1">Wakil Dekan I (Dr. H. Dudy Imanuddin Effendi, M. Ag.)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-semibold text-slate-700">Atau Upload Gambar TTD Manual (PNG)</label>
+                        <input type="file" id="input-ttd-manual" accept="image/*" onchange="uploadTtdManual(event)" class="w-full text-xs mt-1 border p-1.5 rounded">
+                    </div>
+
+                    <button onclick="simpanSuratResmi()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition shadow">
+                        Setujui & Terbitkan Surat
+                    </button>
+                </div>
+
+                <!-- Preview Document Paper -->
+                <div class="md:col-span-2 bg-slate-200 p-3 rounded-lg overflow-auto max-h-[650px]">
+                    <div id="surat-paper" class="paper-doc"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentUser = null;
+        let activeSuratData = null;
+        let selectedChatRoomNim = null; // NIM room aktif untuk Admin
+
+        // Interactive Drag & Resize TTD
+        let ttdPos = { x: 0, y: 0 };
+        interact('#interactive-ttd-box')
+            .draggable({
+                listeners: {
+                    move(event) {
+                        ttdPos.x += event.dx;
+                        ttdPos.y += event.dy;
+                        event.target.style.transform = `translate(${ttdPos.x}px, ${ttdPos.y}px)`;
+                    }
+                }
+            })
+            .resizable({
+                edges: { left: true, right: true, bottom: true, top: true },
+                listeners: {
+                    move(event) {
+                        let { width, height } = event.rect;
+                        ttdPos.x += event.deltaRect.left;
+                        ttdPos.y += event.deltaRect.top;
+                        event.target.style.width = `${width}px`;
+                        event.target.style.height = `${height}px`;
+                        event.target.style.transform = `translate(${ttdPos.x}px, ${ttdPos.y}px)`;
+                    }
+                }
+            });
+
+        // AUTH TAB SWITCHER
+        function switchAuthTab(tab) {
+            const loginForm = document.getElementById('login-form');
+            const regForm = document.getElementById('register-form');
+            const loginBtn = document.getElementById('tab-login-btn');
+            const regBtn = document.getElementById('tab-register-btn');
+
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                regForm.classList.add('hidden');
+                loginBtn.className = 'w-1/2 py-2 text-center font-bold text-sm text-blue-600 border-b-2 border-blue-600 focus:outline-none';
+                regBtn.className = 'w-1/2 py-2 text-center font-bold text-sm text-slate-400 border-b-2 border-transparent hover:text-slate-600 focus:outline-none';
+            } else {
+                loginForm.classList.add('hidden');
+                regForm.classList.remove('hidden');
+                regBtn.className = 'w-1/2 py-2 text-center font-bold text-sm text-blue-600 border-b-2 border-blue-600 focus:outline-none';
+                loginBtn.className = 'w-1/2 py-2 text-center font-bold text-sm text-slate-400 border-b-2 border-transparent hover:text-slate-600 focus:outline-none';
+            }
+        }
+
+        // HANDLE LOGIN
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentUser = data.user;
+                    setupDashboard();
+                } else { alert(data.message); }
+            } catch(err) {
+                alert('Gagal login! Periksa koneksi server.');
+            }
+        });
+
+        // HANDLE REGISTER MAHASISWA
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                nama: document.getElementById('reg-nama').value,
+                nim: document.getElementById('reg-nim').value,
+                jurusan: document.getElementById('reg-jurusan').value,
+                email: document.getElementById('reg-email').value,
+                password: document.getElementById('reg-password').value
+            };
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Pendaftaran berhasil! Silakan login menggunakan NIM dan Password Anda.');
+                    switchAuthTab('login');
+                    document.getElementById('login-username').value = payload.nim;
+                } else { alert(data.message); }
+            } catch (err) {
+                alert('Terjadi kesalahan pada pendaftaran.');
+            }
+        });
+
+        function setupDashboard() {
+            document.getElementById('auth-view').classList.add('hidden');
+            document.getElementById('dashboard-view').classList.remove('hidden');
+            document.getElementById('user-info').innerText = `${currentUser.name} (${currentUser.role.toUpperCase()})`;
+            
+            if (currentUser.role === 'admin') {
+                document.getElementById('form-mahasiswa-panel').classList.add('hidden');
+                document.getElementById('surat-scope-tag').innerText = 'Semua Pengajuan Surat (Admin View)';
+                document.getElementById('admin-chat-list').classList.remove('hidden');
+                document.getElementById('chat-target-header').innerText = 'Pilih Mahasiswa';
+            } else {
+                renderDynamicFormFields();
+                document.getElementById('surat-scope-tag').innerText = 'Arsip Surat Saya';
+                document.getElementById('chat-target-header').innerText = 'Chat dengan Admin TU';
+                selectedChatRoomNim = currentUser.nim || currentUser.username;
+            }
+
+            // Join Room Socket untuk Chat Privat
+            socket.emit('join_chat_session', { 
+                role: currentUser.role, 
+                nim: currentUser.nim || currentUser.username 
+            });
+
+            fetchSurat();
+        }
+
+        // Helper Dropdown Prodi & Semester
+        const optionsProdi = `
+            <option value="Bimbingan Konseling Islam">Bimbingan Konseling Islam</option>
+            <option value="Komunikasi Penyiaran Islam">Komunikasi Penyiaran Islam</option>
+            <option value="Manajemen Dakwah">Manajemen Dakwah</option>
+            <option value="Pengembangan Masyarakat Islam">Pengembangan Masyarakat Islam</option>
+            <option value="Ilmu Komunikasi Bidang Jurnalistik">Ilmu Komunikasi Bidang Jurnalistik</option>
+            <option value="Ilmu Komunikasi Bidang Humas">Ilmu Komunikasi Bidang Humas</option>
+            <option value="Manajemen Haji dan Umrah">Manajemen Haji dan Umrah</option>
+        `;
+        const optionsSemester = `
+            <option value="I (satu)">I (satu)</option>
+            <option value="II (dua)">II (dua)</option>
+            <option value="III (tiga)">III (tiga)</option>
+            <option value="IV (empat)">IV (empat)</option>
+            <option value="V (lima)" selected>V (lima)</option>
+            <option value="VI (enam)">VI (enam)</option>
+            <option value="VII (tujuh)">VII (tujuh)</option>
+            <option value="VIII (delapan)">VIII (delapan)</option>
+        `;
+
+        // Render Dynamic Input Fields berdasarkan Jenis Surat
+        function renderDynamicFormFields() {
+            const jenis = document.getElementById('mhs-jenis-surat').value;
+            const container = document.getElementById('dynamic-form-fields');
+            container.innerHTML = '';
+
+            const defaultNama = currentUser ? currentUser.name : '';
+            const defaultNim = currentUser && currentUser.nim ? currentUser.nim : '';
+            const defaultJurusan = currentUser && currentUser.jurusan ? currentUser.jurusan : '';
+
+            if (jenis === 'Surat Keterangan Verval') {
+                container.innerHTML = `
+                    <div><label class="text-xs text-slate-600 font-semibold">Nama Alumni / Mahasiswa</label><input type="text" id="mhs-nama" value="${defaultNama}" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">NIM</label><input type="text" id="mhs-nim" value="${defaultNim}" required placeholder="1244060082" class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Program Studi / Jurusan</label><input type="text" id="mhs-jurusan" value="${defaultJurusan}" placeholder="Contoh: Bimbingan Konseling Islam / Penerangan Agama Islam" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-xs text-slate-600 font-semibold">Lulusan Tahun</label><input type="text" id="mhs-lulusan-tahun" value="2025" placeholder="2025" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                        <div><label class="text-xs text-slate-600 font-semibold">Nomor Ijazah</label><input type="text" id="mhs-nomor-ijazah" placeholder="UIN-02/FDK/2025/00123" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    </div>
+                `;
+            } else if (
+                jenis === 'Surat Keterangan Kelakuan Baik' ||
+                jenis === 'Surat Keterangan Tidak Menerima Beasiswa' ||
+                jenis === 'Surat Keterangan Aktif Kuliah (Non-ASN)'
+            ) {
+                container.innerHTML = `
+                    <div><label class="text-xs text-slate-600 font-semibold">Nama Mahasiswa</label><input type="text" id="mhs-nama" value="${defaultNama}" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">NIM</label><input type="text" id="mhs-nim" value="${defaultNim}" required placeholder="1244060082" class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-xs text-slate-600 font-semibold">Jurusan / Prodi</label><select id="mhs-jurusan" class="w-full p-2 border rounded text-xs mt-1">${optionsProdi}</select></div>
+                        <div><label class="text-xs text-slate-600 font-semibold">Semester</label><select id="mhs-semester" class="w-full p-2 border rounded text-xs mt-1">${optionsSemester}</select></div>
+                    </div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Alamat Mahasiswa</label><input type="text" id="mhs-alamat" required placeholder="Kota Bandung" class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Keperluan / Deskripsi Surat</label><textarea id="mhs-deskripsi" required placeholder="Persyaratan Beasiswa / Beasiswa KIP / Kelengkapan Berkas..." class="w-full p-2 border rounded text-xs mt-1" rows="2"></textarea></div>
+                `;
+            } else if (jenis === 'Surat Rekomendasi') {
+                container.innerHTML = `
+                    <div><label class="text-xs text-slate-600 font-semibold">Nama Mahasiswa</label><input type="text" id="mhs-nama" value="${defaultNama}" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">NIM</label><input type="text" id="mhs-nim" value="${defaultNim}" required placeholder="1244060082" class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-xs text-slate-600 font-semibold">Jurusan / Prodi</label><select id="mhs-jurusan" class="w-full p-2 border rounded text-xs mt-1">${optionsProdi}</select></div>
+                        <div><label class="text-xs text-slate-600 font-semibold">Semester</label><select id="mhs-semester" class="w-full p-2 border rounded text-xs mt-1">${optionsSemester}</select></div>
+                    </div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Alamat Mahasiswa</label><input type="text" id="mhs-alamat" required placeholder="Kota Bandung" class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">IPK Terakhir</label><input type="text" id="mhs-ipk" value="3.85" placeholder="Contoh: 3.85" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Persyaratan / Keperluan Deskripsi Surat</label><textarea id="mhs-deskripsi" required placeholder="pendaftaran beasiswa / kegiatan kompetisi..." class="w-full p-2 border rounded text-xs mt-1" rows="2"></textarea></div>
+                `;
+            } else if (jenis === 'Permohonan Izin Praktik Mata Kuliah') {
+                container.innerHTML = `
+                    <div><label class="text-xs text-slate-600 font-semibold">Kepada Yth.</label><input type="text" id="mhs-kepada" placeholder="Contoh: Kepala Stasiun TVRI West Java" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Alamat Tempat Praktik Mata Kuliah</label><input type="text" id="mhs-alamat-tempat" placeholder="Jl. Cibaduyut No. 88 Bandung" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Nama Lengkap Mahasiswa</label><input type="text" id="mhs-nama" value="${defaultNama}" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">NIM</label><input type="text" id="mhs-nim" value="${defaultNim}" required placeholder="1244060082" class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-xs text-slate-600 font-semibold">Jurusan / Prodi</label><select id="mhs-jurusan" class="w-full p-2 border rounded text-xs mt-1">${optionsProdi}</select></div>
+                        <div><label class="text-xs text-slate-600 font-semibold">Semester</label><select id="mhs-semester" class="w-full p-2 border rounded text-xs mt-1">${optionsSemester}</select></div>
+                    </div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Alamat Mahasiswa</label><input type="text" id="mhs-alamat" required placeholder="Kota Bandung" class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Dosen Pembimbing</label><input type="text" id="mhs-dosen1" placeholder="Dr. H. Ahmad, M.Ag." required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Mata Kuliah</label><input type="text" id="mhs-mata-kuliah" placeholder="Teknik Olah Vokal dan Presenter" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                `;
+            } else if (jenis === 'Permohonan Izin Observasi Lapangan') {
+                container.innerHTML = `
+                    <div><label class="text-xs text-slate-600 font-semibold">Kepada Yth.</label><input type="text" id="mhs-kepada" placeholder="Contoh: Kepala Dinas Komunikasi dan Informatika" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Alamat Tempat Penelitian</label><input type="text" id="mhs-alamat-tempat" placeholder="Jl. Sukabumi No. 20 Bandung" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Nama Lengkap Mahasiswa</label><input type="text" id="mhs-nama" value="${defaultNama}" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">NIM</label><input type="text" id="mhs-nim" value="${defaultNim}" required placeholder="1244060082" class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-xs text-slate-600 font-semibold">Jurusan / Prodi</label><select id="mhs-jurusan" class="w-full p-2 border rounded text-xs mt-1">${optionsProdi}</select></div>
+                        <div><label class="text-xs text-slate-600 font-semibold">Semester</label><select id="mhs-semester" class="w-full p-2 border rounded text-xs mt-1">${optionsSemester}</select></div>
+                    </div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Alamat Mahasiswa</label><input type="text" id="mhs-alamat" required placeholder="Kota Bandung" class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Dosen Pembimbing</label><input type="text" id="mhs-dosen1" placeholder="Dr. H. Ahmad, M.Ag." required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Judul Skripsi / Topik / Masalah</label><textarea id="mhs-judul-skripsi" placeholder="Masukkan Judul Skripsi / Topik / Masalah Observasi" required class="w-full p-2 border rounded text-xs mt-1" rows="2"></textarea></div>
+                `;
+            } else if (jenis === 'Permohonan Izin Riset/Survey/Konsultasi') {
+                container.innerHTML = `
+                    <div><label class="text-xs text-slate-600 font-semibold">Kepada Yth.</label><input type="text" id="mhs-kepada" placeholder="Contoh: Kepala Dinas Komunikasi dan Informatika" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Alamat Tempat Penelitian</label><input type="text" id="mhs-alamat-tempat" placeholder="Jl. Sukabumi No. 20 Bandung" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Nama Lengkap Mahasiswa</label><input type="text" id="mhs-nama" value="${defaultNama}" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">NIM</label><input type="text" id="mhs-nim" value="${defaultNim}" required placeholder="1244060082" class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-xs text-slate-600 font-semibold">Jurusan / Prodi</label><select id="mhs-jurusan" class="w-full p-2 border rounded text-xs mt-1">${optionsProdi}</select></div>
+                        <div><label class="text-xs text-slate-600 font-semibold">Semester</label><select id="mhs-semester" class="w-full p-2 border rounded text-xs mt-1">${optionsSemester}</select></div>
+                    </div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Alamat Mahasiswa</label><input type="text" id="mhs-alamat" required placeholder="Kota Bandung" class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Judul Skripsi / Topik / Masalah</label><textarea id="mhs-judul-skripsi" placeholder="Masukkan Judul Skripsi Lengkap" required class="w-full p-2 border rounded text-xs mt-1" rows="2"></textarea></div>
+                    <div class="grid grid-cols-2 gap-2 bg-slate-50 p-2 rounded border">
+                        <div><label class="text-xs text-slate-600 font-semibold">Dosen Pembimbing 1</label><input type="text" id="mhs-dosen1" placeholder="Dr. Nama Pembimbing 1, M.Ag." required class="w-full p-2 border rounded text-xs mt-1"></div>
+                        <div><label class="text-xs text-slate-600 font-semibold">Dosen Pembimbing 2</label><input type="text" id="mhs-dosen2" placeholder="Nama Pembimbing 2, M.Si." required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    </div>
+                `;
+            } else if (jenis === 'Surat Izin Magang/Job Training/PPM Individu') {
+                container.innerHTML = `
+                    <div>
+                        <label class="text-xs text-slate-600 font-semibold">Pelaksanaan (Jenis Surat)</label>
+                        <select id="mhs-pelaksanaan" class="w-full p-2 border rounded text-xs mt-1 bg-white font-medium">
+                            <option value="Magang">Magang</option>
+                            <option value="Job Training">Job Training</option>
+                            <option value="Praktik Profesi Mahasiswa">Praktik Profesi Mahasiswa (PPM)</option>
+                            <option value="Praktik Lapangan Terpadu">Praktik Lapangan Terpadu (PLT)</option>
+                        </select>
+                    </div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Kepada Yth.</label><input type="text" id="mhs-kepada" placeholder="Contoh: Pimpinan PT. TVRI Bandung" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Alamat Tempat Magang/Job Training/PPM</label><input type="text" id="mhs-alamat-tempat" placeholder="Jl. Raya Soekarno Hatta No. 12" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Nama Lengkap Mahasiswa</label><input type="text" id="mhs-nama" value="${defaultNama}" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">NIM</label><input type="text" id="mhs-nim" value="${defaultNim}" placeholder="1244060082" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-xs text-slate-600 font-semibold">Jurusan / Prodi</label><select id="mhs-jurusan" class="w-full p-2 border rounded text-xs mt-1">${optionsProdi}</select></div>
+                        <div><label class="text-xs text-slate-600 font-semibold">Semester</label><select id="mhs-semester" class="w-full p-2 border rounded text-xs mt-1">${optionsSemester}</select></div>
+                    </div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Alamat Mahasiswa</label><input type="text" id="mhs-alamat" placeholder="Kota Bandung" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Dosen Pembimbing</label><input type="text" id="mhs-dosen1" placeholder="Dr. H. Ahmad, M.Ag." required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div class="grid grid-cols-2 gap-2 bg-slate-50 p-2 rounded border">
+                        <div><label class="text-xs text-slate-600 font-semibold">Tanggal Awal Masuk</label><input type="text" id="mhs-tgl-awal" placeholder="01 Oktober 2026" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                        <div><label class="text-xs text-slate-600 font-semibold">Tanggal Selesai</label><input type="text" id="mhs-tgl-selesai" placeholder="30 November 2026" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    </div>
+                `;
+            } else if (jenis === 'Surat Izin Kelompok PMK/Magang/Job Training/PPM') {
+                container.innerHTML = `
+                    <div>
+                        <label class="text-xs text-slate-600 font-semibold">Pelaksanaan (Jenis Surat)</label>
+                        <select id="mhs-pelaksanaan" class="w-full p-2 border rounded text-xs mt-1 bg-white font-medium">
+                            <option value="Magang">Magang</option>
+                            <option value="Job Training">Job Training</option>
+                            <option value="Praktik Profesi Mahasiswa">Praktik Profesi Mahasiswa (PPM)</option>
+                            <option value="Praktik Mata Kuliah">Praktik Mata Kuliah (PMK)</option>
+                        </select>
+                    </div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Kepada Yth.</label><input type="text" id="mhs-kepada" placeholder="Contoh: Kepala Stasiun TVRI West Java" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Alamat Tempat PPM/PMK/Job Training</label><input type="text" id="mhs-alamat-tempat" placeholder="Jl. Cibaduyut No. 88 Bandung" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    
+                    <div class="border-t pt-2 mt-2">
+                        <label class="text-xs font-bold text-blue-700 block mb-1">Daftar Anggota Kelompok (Minimal 2, Maksimal 10):</label>
+                        <div id="group-members-container" class="space-y-3 max-h-[350px] overflow-y-auto pr-1"></div>
+                        <button type="button" onclick="addMemberField()" class="mt-2 w-full bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold py-1.5 rounded">+ Tambah Mahasiswa</button>
+                    </div>
+                `;
+                addMemberField(true);
+                addMemberField(true);
+            } else if (jenis === 'Surat Keterangan Aktif Kuliah (Anak PNS/TNI/POLRI)') {
+                container.innerHTML = `
+                    <div><label class="text-xs text-slate-600 font-semibold">Nama Mahasiswa</label><input type="text" id="mhs-nama" value="${defaultNama}" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div><label class="text-xs text-slate-600 font-semibold">NIM</label><input type="text" id="mhs-nim" value="${defaultNim}" required placeholder="1244060082" class="w-full p-2 border rounded text-xs mt-1"></div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="text-xs text-slate-600 font-semibold">Jurusan / Prodi</label><select id="mhs-jurusan" class="w-full p-2 border rounded text-xs mt-1">${optionsProdi}</select></div>
+                        <div><label class="text-xs text-slate-600 font-semibold">Tingkat / Semester</label><select id="mhs-semester" class="w-full p-2 border rounded text-xs mt-1">${optionsSemester}</select></div>
+                    </div>
+                    <div><label class="text-xs text-slate-600 font-semibold">Tahun Akademik</label><input type="text" id="mhs-tahun-akademik" placeholder="2025/2026" value="2025/2026" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                    
+                    <div class="border-t pt-2 mt-2">
+                        <span class="text-xs font-bold text-blue-700 block mb-1">Data Orang Tua / Wali (PNS/TNI/POLRI):</span>
+                        <div class="space-y-2">
+                            <div><label class="text-xs text-slate-600 font-semibold">Nama Orang Tua / Wali</label><input type="text" id="mhs-nama-ortu" placeholder="Nama Orang Tua" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                            <div><label class="text-xs text-slate-600 font-semibold">NIP / NRP / NVP</label><input type="text" id="mhs-nip-ortu" placeholder="19700101 200001 1 001" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                            <div><label class="text-xs text-slate-600 font-semibold">Pangkat / Golongan Ruang</label><input type="text" id="mhs-pangkat-ortu" placeholder="Pembina, IV/a" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                            <div><label class="text-xs text-slate-600 font-semibold">Instansi</label><input type="text" id="mhs-instansi-ortu" placeholder="Dinas Pendidikan Kota Bandung" required class="w-full p-2 border rounded text-xs mt-1"></div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        let memberCount = 0;
+        function addMemberField(isMandatory = false) {
+            const container = document.getElementById('group-members-container');
+            if (!container) return;
+            const currentMembers = container.children.length;
+            if (currentMembers >= 10) { alert('Maksimal 10 Mahasiswa!'); return; }
+
+            memberCount++;
+            const num = currentMembers + 1;
+            const div = document.createElement('div');
+            div.className = "p-2.5 bg-slate-50 border rounded-lg space-y-2 relative";
+            div.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-700">Mahasiswa ${num} ${num <= 2 ? '<span class="text-red-500">*Wajib</span>' : ''}</span>
+                    ${num > 2 ? `<button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-500 text-xs font-bold">Hapus</button>` : ''}
+                </div>
+                <input type="text" placeholder="Nama Mahasiswa ${num}" class="mhs-group-nama w-full p-1.5 border rounded text-xs" ${num <= 2 ? 'required' : ''}>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" placeholder="NIM" class="mhs-group-nim w-full p-1.5 border rounded text-xs" ${num <= 2 ? 'required' : ''}>
+                    <select class="mhs-group-jurusan w-full p-1.5 border rounded text-xs">${optionsProdi}</select>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <select class="mhs-group-semester w-full p-1.5 border rounded text-xs">${optionsSemester}</select>
+                    <input type="text" placeholder="Dosen Pembimbing" class="mhs-group-dosen w-full p-1.5 border rounded text-xs" ${num <= 2 ? 'required' : ''}>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
+        // Form Submit Mahasiswa
+        document.getElementById('form-surat-mahasiswa').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const jenis = document.getElementById('mhs-jenis-surat').value;
+            
+            // Collect Group Members if Kelompok
+            let groupList = [];
+            if (jenis === 'Surat Izin Kelompok PMK/Magang/Job Training/PPM') {
+                const names = document.querySelectorAll('.mhs-group-nama');
+                const nims = document.querySelectorAll('.mhs-group-nim');
+                const jurs = document.querySelectorAll('.mhs-group-jurusan');
+                const sems = document.querySelectorAll('.mhs-group-semester');
+                const dosens = document.querySelectorAll('.mhs-group-dosen');
+
+                for (let i = 0; i < names.length; i++) {
+                    if (names[i].value.trim() !== '') {
+                        groupList.push({
+                            nama: names[i].value,
+                            nim: nims[i].value,
+                            jurusan: jurs[i].value,
+                            semester: sems[i].value,
+                            dosen: dosens[i].value
+                        });
+                    }
+                }
+            }
+
+            const payload = {
+                mahasiswa: document.getElementById('mhs-nama')?.value || (groupList.length > 0 ? groupList[0].nama : '-'),
+                nim: document.getElementById('mhs-nim')?.value || (groupList.length > 0 ? groupList[0].nim : '-'),
+                jurusan: document.getElementById('mhs-jurusan')?.value || (groupList.length > 0 ? groupList[0].jurusan : '-'),
+                semester: document.getElementById('mhs-semester')?.value || '-',
+                alamat: document.getElementById('mhs-alamat')?.value || '-',
+                jenisSurat: jenis,
+                bulanKe: document.getElementById('mhs-bulan-ke').value,
+                tahun: document.getElementById('mhs-tahun').value,
+                tanggalSurat: document.getElementById('mhs-tanggal-surat').value,
+                
+                pelaksanaan: document.getElementById('mhs-pelaksanaan')?.value || '',
+                kepadaYth: document.getElementById('mhs-kepada')?.value || '',
+                alamatTempat: document.getElementById('mhs-alamat-tempat')?.value || '',
+                dosen1: document.getElementById('mhs-dosen1')?.value || '',
+                dosen2: document.getElementById('mhs-dosen2')?.value || '',
+                judulSkripsi: document.getElementById('mhs-judul-skripsi')?.value || '',
+                mataKuliah: document.getElementById('mhs-mata-kuliah')?.value || '',
+                tglAwal: document.getElementById('mhs-tgl-awal')?.value || '',
+                tglSelesai: document.getElementById('mhs-tgl-selesai')?.value || '',
+                deskripsiSurat: document.getElementById('mhs-deskripsi')?.value || '',
+                ipk: document.getElementById('mhs-ipk')?.value || '',
+                lulusanTahun: document.getElementById('mhs-lulusan-tahun')?.value || '',
+                nomorIjazah: document.getElementById('mhs-nomor-ijazah')?.value || '',
+                
+                tahunAkademik: document.getElementById('mhs-tahun-akademik')?.value || '',
+                namaOrtu: document.getElementById('mhs-nama-ortu')?.value || '',
+                nipOrtu: document.getElementById('mhs-nip-ortu')?.value || '',
+                pangkatOrtu: document.getElementById('mhs-pangkat-ortu')?.value || '',
+                instansiOrtu: document.getElementById('mhs-instansi-ortu')?.value || '',
+                
+                groupList: groupList
+            };
+
+            try {
+                const res = await fetch('/api/ajukan-surat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Permohonan surat berhasil dikirim!');
+                    fetchSurat();
+                } else alert(data.message);
+            } catch (err) { alert('Gagal terhubung ke server!'); }
+        });
+
+        // AMBIL DAFTAR SURAT SESUAI USER ROLE & NIM
+        async function fetchSurat() {
+            try {
+                const userNim = currentUser && currentUser.role === 'mahasiswa' ? (currentUser.nim || currentUser.username) : '';
+                const url = userNim ? `/api/surat?nim=${userNim}` : '/api/surat';
+                const res = await fetch(url);
+                renderSuratTable(await res.json());
+            } catch (err) { console.error(err); }
+        }
+
+        function renderSuratTable(suratList) {
+            const tbody = document.getElementById('surat-table-body');
+            tbody.innerHTML = suratList.length === 0 ? '<tr><td colspan="4" class="text-center py-4 text-slate-400">Belum ada permohonan surat.</td></tr>' : '';
+
+            suratList.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50";
+
+                let actionBtn = '-';
+                if (currentUser.role === 'admin') {
+                    actionBtn = item.status === 'Diproses'
+                        ? `<button onclick="openAdminModal(${item.id})" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2.5 py-1 rounded">Verifikasi & TTD</button>`
+                        : `<a href="${item.signedFileUrl}" target="_blank" class="text-xs text-blue-600 underline font-semibold">Lihat Hasil</a>`;
+                } else {
+                    actionBtn = item.signedFileUrl 
+                        ? `<a href="${item.signedFileUrl}" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-1 rounded font-bold">Unduh / Cetak Surat (A4)</a>`
+                        : `<span class="text-xs text-slate-400">Menunggu TTD</span>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="p-3 font-medium">${item.mahasiswa} <br><span class="text-xs text-slate-400">NIM: ${item.nim}</span></td>
+                    <td class="p-3 text-slate-600 text-xs"><b>${item.jenisSurat}</b><br>No: ${item.nomorSurat}</td>
+                    <td class="p-3"><span class="px-2 py-1 rounded text-[10px] font-semibold ${item.status === 'Disetujui' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">${item.status}</span></td>
+                    <td class="p-3">${actionBtn}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function openAdminModal(id) {
+            const res = await fetch('/api/surat');
+            const list = await res.json();
+            activeSuratData = list.find(s => s.id == id);
+
+            if (activeSuratData) {
+                document.getElementById('modal-surat-id').value = activeSuratData.id;
+                
+                // Auto-select Pejabat
+                if (activeSuratData.jenisSurat === 'Surat Keterangan Verval') {
+                    document.getElementById('select-ttd-pejabat').value = 'dekan';
+                } else if (
+                    activeSuratData.jenisSurat === 'Surat Keterangan Kelakuan Baik' || 
+                    activeSuratData.jenisSurat === 'Surat Keterangan Tidak Menerima Beasiswa' || 
+                    activeSuratData.jenisSurat === 'Surat Rekomendasi'
+                ) {
+                    document.getElementById('select-ttd-pejabat').value = 'wd3';
+                } else {
+                    document.getElementById('select-ttd-pejabat').value = 'wd1';
+                }
+
+                renderTemplatePaper(activeSuratData);
+                applyTtdPejabat();
+                document.getElementById('admin-modal').classList.remove('hidden');
+            }
+        }
+
+        function closeModal() { document.getElementById('admin-modal').classList.add('hidden'); }
+        function updateNomorLive() { document.getElementById('doc-no-surat').innerText = document.getElementById('input-no-surat').value || '...'; }
+
+        // GENERATE TEMPLATE DOKUMEN DALAM BENTUK HTML RESMI
+        function renderTemplatePaper(item) {
+            const d = item.formData;
+            const paper = document.getElementById('surat-paper');
+            let bodyContent = '';
+            
+            const isIzinSurat = (
+                item.jenisSurat === 'Surat Izin Kelompok PMK/Magang/Job Training/PPM' ||
+                item.jenisSurat === 'Surat Izin Magang/Job Training/PPM Individu' ||
+                item.jenisSurat === 'Permohonan Izin Riset/Survey/Konsultasi' ||
+                item.jenisSurat === 'Permohonan Izin Observasi Lapangan' ||
+                item.jenisSurat === 'Permohonan Izin Praktik Mata Kuliah'
+            );
+
+            if (item.jenisSurat === 'Surat Keterangan Verval') {
+                bodyContent = `
+                    <div style="text-align: center; margin-bottom: 22px;">
+                        <u style="font-size: 16px; font-weight: bold; letter-spacing: 1.5px;">SURAT KETERANGAN</u><br>
+                        <span style="font-size: 12px;">No.: B- <span id="doc-no-surat">4658</span> /Un.02/III.4/PP.00.9/${item.bulanKe}/${item.tahun}</span>
+                    </div>
+
+                    <p style="font-size: 12px; margin-bottom: 5px;">Yang bertadatangan di bawah ini</p>
+                    <table style="width: 100%; font-size: 12px; margin-left: 15px; margin-bottom: 12px; line-height: 1.8;">
+                        <tr><td style="width: 130px;">Nama</td><td style="width: 10px;">:</td><td>Prof. Dr. H. Enjang, M.Si, M.Ag.</td></tr>
+                        <tr><td>NIP.</td><td>:</td><td>19680814199503 1003</td></tr>
+                        <tr><td>Jabatan</td><td>:</td><td>Dekan</td></tr>
+                    </table>
+
+                    <p style="font-size: 12px; margin-bottom: 5px;">Dengan ini menerangkan bahwa :</p>
+
+                    <table style="width: 100%; font-size: 12px; margin-left: 15px; margin-bottom: 15px; line-height: 1.8;">
+                        <tr><td style="width: 130px;">Nama</td><td style="width: 10px;">:</td><td>${d.mahasiswa || '-'}</td></tr>
+                        <tr><td>NIM</td><td>:</td><td>${d.nim || '-'}</td></tr>
+                        <tr><td>Program Studi</td><td>:</td><td>${d.jurusan || '-'}</td></tr>
+                        <tr><td>Lulusan tahun</td><td>:</td><td>${d.lulusanTahun || '-'}</td></tr>
+                        <tr><td>Nomor Ijazah</td><td>:</td><td>${d.nomorIjazah || '-'}</td></tr>
+                    </table>
+
+                    <p style="font-size: 12px; margin-bottom: 12px; text-align: justify; line-height: 1.6;">
+                        Adalah benar nama tersebut di atas telah lulus dalam menyelesaikan studi di fakultas Dakwah dan Komunikasi, Universitas Islam Negeri Sunan Gunung Djati Bandung. nama tersebut belum dilaporkan ke PDDIKTI Kemdikbud RI di web <a href="https://pddikti.kemdikbud.go.id" style="color: blue; text-decoration: underline;">https://pddikti.kemdikbud.go.id</a> karena pelaporan untuk fakultas Agama Islam ada dibawah kewenangan Kemenag RI dimulai tahun 2009 - 2010. Oleh karena itu kami lampirkan data pendukung terkait hal ini.
+                    </p>
+
+                    <p style="font-size: 12px; margin-bottom: 25px; text-align: justify;">Demikian surat keterangan ini dibuat untuk dipergunakan sebagaimana.</p>
+                `;
+            } else if (item.jenisSurat === 'Surat Keterangan Kelakuan Baik') {
+                bodyContent = `
+                    <div style="text-align: center; margin-bottom: 22px;">
+                        <u style="font-size: 16px; font-weight: bold; letter-spacing: 1px;">SURAT KETERANGAN KELAKUAN BAIK</u><br>
+                        <span style="font-size: 12px;">Nomor : B- <span id="doc-no-surat">4658</span> /Un.02/III.4/PP.00.9/${item.bulanKe}/${item.tahun}</span>
+                    </div>
+
+                    <p style="font-size: 12px; margin-bottom: 12px; text-align: justify;">Dekan Fakultas Dakwah dan Komunikasi Universitas Islam Negeri (UIN) Sunan Gunung Djati Bandung menerangkan bahwa:</p>
+
+                    <table style="width: 100%; font-size: 12px; margin-left: 15px; margin-bottom: 12px; line-height: 1.8;">
+                        <tr><td style="width: 130px;">Nama</td><td style="width: 10px;">:</td><td>${d.mahasiswa || '-'}</td></tr>
+                        <tr><td>Nomor Pokok</td><td>:</td><td>${d.nim || '-'}</td></tr>
+                        <tr><td>Jurusan</td><td>:</td><td>${d.jurusan || '-'}</td></tr>
+                        <tr><td>Semester</td><td>:</td><td>${d.semester || '-'}</td></tr>
+                        <tr><td>Alamat</td><td>:</td><td>${d.alamat || '-'}</td></tr>
+                    </table>
+
+                    <p style="font-size: 12px; margin-bottom: 12px; text-align: justify; line-height: 1.6;">
+                        adalah benar Mahasiswa Fakultas Dakwah dan Komunikasi Universitas Islam Negeri (UIN) Sunan Gunung Djati Bandung, menurut pengamatan kami yang bersangkutan <b><i>Berkelakuan Baik</i></b>.
+                    </p>
+
+                    <p style="font-size: 12px; margin-bottom: 25px; text-align: justify;">Demikian surat keterangan ini dibuat dengan sebenarnya untuk dipergunakan sebagaimana mestinya.</p>
+                `;
+            } else if (item.jenisSurat === 'Surat Keterangan Tidak Menerima Beasiswa') {
+                bodyContent = `
+                    <div style="text-align: center; margin-bottom: 22px;">
+                        <u style="font-size: 16px; font-weight: bold; letter-spacing: 1.5px;">SURAT  KETERANGAN</u><br>
+                        <span style="font-size: 12px;">Nomor : B- <span id="doc-no-surat">4658</span> /Un.02/III.4/PP.00.9/${item.bulanKe}/${item.tahun}</span>
+                    </div>
+
+                    <p style="font-size: 12px; margin-bottom: 12px; text-align: justify;">Dekan Fakultas Dakwah dan Komunikasi Universitas Islam Negeri (UIN) Sunan Gunung Djati Bandung menerangkan bahwa:</p>
+
+                    <table style="width: 100%; font-size: 12px; margin-left: 15px; margin-bottom: 12px; line-height: 1.8;">
+                        <tr><td style="width: 130px;">Nama</td><td style="width: 10px;">:</td><td>${d.mahasiswa || '-'}</td></tr>
+                        <tr><td>Nomor Pokok</td><td>:</td><td>${d.nim || '-'}</td></tr>
+                        <tr><td>Jurusan</td><td>:</td><td>${d.jurusan || '-'}</td></tr>
+                        <tr><td>Semester</td><td>:</td><td>${d.semester || '-'}</td></tr>
+                        <tr><td>Alamat</td><td>:</td><td>${d.alamat || '-'}</td></tr>
+                    </table>
+
+                    <p style="font-size: 12px; margin-bottom: 5px;">adalah benar yang bersangkutan:</p>
+                    <ol style="font-size: 12px; margin-left: 25px; margin-bottom: 12px; list-style-type: decimal; line-height: 1.6;">
+                        <li>Sebagai <b><i>Mahasiswa Aktif</i></b> di Fakultas Dakwah dan Komunikasi Universitas Islam Negeri (UIN) Sunan Gunung Djati Bandung.</li>
+                        <li>Tidak Sedang Menerima Beasiswa dari Pihak Manapun</li>
+                    </ol>
+
+                    <p style="font-size: 12px; margin-bottom: 12px;">surat keterangan ini dibuat untuk : <i>${d.deskripsiSurat || '-'}</i></p>
+
+                    <p style="font-size: 12px; margin-bottom: 25px; text-align: justify;">Demikian surat keterangan ini dibuat dengan sebenarnya untuk dipergunakan sebagaimana mestinya.</p>
+                `;
+            } else if (item.jenisSurat === 'Surat Rekomendasi') {
+                bodyContent = `
+                    <div style="text-align: center; margin-bottom: 22px;">
+                        <u style="font-size: 16px; font-weight: bold; letter-spacing: 1.5px;">SURAT  REKOMENDASI</u><br>
+                        <span style="font-size: 12px;">Nomor : B- <span id="doc-no-surat">4658</span> /Un.02/III.4/PP.00.9/${item.bulanKe}/${item.tahun}</span>
+                    </div>
+
+                    <p style="font-size: 12px; margin-bottom: 8px;">Yang bertanda tangan di bawah ini:</p>
+
+                    <table style="width: 100%; font-size: 12px; margin-left: 15px; margin-bottom: 12px; line-height: 1.8;">
+                        <tr><td style="width: 130px;">Nama</td><td style="width: 10px;">:</td><td>Dr. H. Asep Shodiqin, M.Ag.</td></tr>
+                        <tr><td>Jabatan</td><td>:</td><td>Wakil Dekan III Bidang Kemahasiswaan</td></tr>
+                        <tr><td>NIP</td><td>:</td><td>197512272005011004</td></tr>
+                    </table>
+
+                    <p style="font-size: 12px; margin-bottom: 8px;">Dengan ini memberikan rekomendasi kepada:</p>
+
+                    <table style="width: 100%; font-size: 12px; margin-left: 15px; margin-bottom: 15px; line-height: 1.8;">
+                        <tr><td style="width: 130px;">Nama</td><td style="width: 10px;">:</td><td><b>${d.mahasiswa || '-'}</b></td></tr>
+                        <tr><td>Nomor Pokok</td><td>:</td><td>${d.nim || '-'}</td></tr>
+                        <tr><td>Jurusan</td><td>:</td><td>${d.jurusan || '-'}</td></tr>
+                        <tr><td>Semester</td><td>:</td><td>${d.semester || '-'}</td></tr>
+                        <tr><td>Alamat</td><td>:</td><td>${d.alamat || '-'}</td></tr>
+                        <tr><td>IPK</td><td>:</td><td>${d.ipk || '-'}</td></tr>
+                    </table>
+
+                    <p style="font-size: 12px; margin-bottom: 12px; text-align: justify; line-height: 1.6;">
+                        Surat rekomendasi ini diberikan sebagai persyaratan: <b>${d.deskripsiSurat || '-'}</b>. Dengan ini kami menyatakan bahwa yang bersangkutan benar-benar terdaftar sebagai mahasiswa aktif di Fakultas Dakwah dan Komunikasi UIN Sunan Gunung Djati Bandung.
+                    </p>
+
+                    <p style="font-size: 12px; margin-bottom: 25px;">Demikian surat rekomendasi ini kami sampaikan untuk dipergunakan sebagaimana mestinya.</p>
+                `;
+            } else if (item.jenisSurat === 'Permohonan Izin Praktik Mata Kuliah') {
+                bodyContent = `
+                    <table style="width: 100%; font-size: 12px; margin-bottom: 12px;">
+                        <tr><td style="width: 80px;">Nomor</td><td>: B- <span id="doc-no-surat">4658</span> /Un.02/III.4/TL.01/${item.bulanKe}/${item.tahun}</td><td style="text-align: right;">Bandung, ${item.tanggalSurat}</td></tr>
+                        <tr><td>Lampiran</td><td>: -</td></tr>
+                        <tr><td style="vertical-align: top;">Perihal</td><td style="vertical-align: top;">: <b>Permohonan Izin<br>Praktik Mata Kuliah</b></td></tr>
+                    </table>
+                    
+                    <p style="font-size: 12px; margin-bottom: 2px;">Kepada Yth.</p>
+                    <p style="font-size: 12px; font-weight: bold; margin-bottom: 2px;">${d.kepadaYth || '-'}</p>
+                    <p style="font-size: 12px; margin-bottom: 15px;">di<br><u style="text-decoration: underline;">${d.alamatTempat || '-'}</u></p>
+                    
+                    <p style="font-size: 12px; font-style: italic; margin-bottom: 10px;">Assalamu'alaikum Wr.Wb,</p>
+                    <p style="font-size: 12px; margin-bottom: 10px; text-align: justify;">Dekan Fakultas Dakwah dan Komunikasi Universitas Islam Negeri (UIN) Sunan Gunung Djati Bandung, dengan ini mohon kesediaan Bapak/Ibu/Saudara untuk memberikan izin kepada mahasiswa sebagai berikut:</p>
+                    
+                    <table style="width: 100%; font-size: 12px; margin-left: 25px; margin-bottom: 10px; line-height: 1.8;">
+                        <tr><td style="width: 130px;"><span style="letter-spacing: 3px;">N a m a</span></td><td style="width: 10px;">:</td><td>${d.mahasiswa || '-'}</td></tr>
+                        <tr><td>Nomor Pokok</td><td>:</td><td>${d.nim || '-'}</td></tr>
+                        <tr><td>Jurusan</td><td>:</td><td>${d.jurusan || '-'}</td></tr>
+                        <tr><td>Semester</td><td>:</td><td>${d.semester || '-'}</td></tr>
+                        <tr><td>Alamat</td><td>:</td><td>${d.alamat || '-'}</td></tr>
+                        <tr><td>Dosen Pembimbing</td><td>:</td><td>${d.dosen1 || '-'}</td></tr>
+                    </table>
+
+                    <p style="font-size: 12px; margin-top: 10px; margin-bottom: 12px; text-align: justify;">
+                        untuk melaksanakan <b>praktik mata kuliah</b> berbobot <u style="text-decoration: underline;">praktik</u> dalam mata kuliah:<br>
+                        <b>"${d.mataKuliah || d.deskripsiSurat || '-'}"</b>.
+                    </p>
+
+                    <p style="font-size: 12px; margin-bottom: 15px;">Demikian permohonan izin ini kami sampaikan, atas bantuannya kami ucapkan terima kasih.</p>
+                    <p style="font-size: 12px; font-style: italic; margin-bottom: 20px;">Wassalamu'alaikum Wr. Wb.</p>
+                `;
+            } else if (item.jenisSurat === 'Permohonan Izin Observasi Lapangan') {
+                bodyContent = `
+                    <table style="width: 100%; font-size: 12px; margin-bottom: 12px;">
+                        <tr><td style="width: 80px;">Nomor</td><td>: B- <span id="doc-no-surat">4658</span> /Un.02/III.4/TL.01/${item.bulanKe}/${item.tahun}</td><td style="text-align: right;">Bandung, ${item.tanggalSurat}</td></tr>
+                        <tr><td>Lampiran</td><td>: -</td></tr>
+                        <tr><td>Perihal</td><td>: <b>Permohonan Izin Observasi Lapangan</b></td></tr>
+                    </table>
+                    
+                    <p style="font-size: 12px; margin-bottom: 2px;">Kepada yth.</p>
+                    <p style="font-size: 12px; font-weight: bold; margin-bottom: 2px;">${d.kepadaYth || '-'}</p>
+                    <p style="font-size: 12px; margin-bottom: 15px;">di<br>${d.alamatTempat || '-'}</p>
+                    
+                    <p style="font-size: 12px; font-style: italic; margin-bottom: 10px;">Assalamu'alaikum Wr.Wb.,</p>
+                    <p style="font-size: 12px; margin-bottom: 10px; text-align: justify;">Dekan Fakultas Dakwah dan Komunikasi Universitas Islam Negeri (UIN) Sunan Gunung Djati Bandung, dengan ini mohon kesediaan Bapak/Ibu/Saudara untuk memberikan izin kepada :</p>
+                    
+                    <table style="width: 100%; font-size: 12px; margin-left: 25px; margin-bottom: 5px; line-height: 1.8;">
+                        <tr><td style="width: 130px;">Nama</td><td style="width: 10px;">:</td><td><b>${d.mahasiswa || '-'}</b></td></tr>
+                        <tr><td>Nomor Pokok</td><td>:</td><td>${d.nim || '-'}</td></tr>
+                        <tr><td>Jurusan</td><td>:</td><td>${d.jurusan || '-'}</td></tr>
+                        <tr><td>Semester</td><td>:</td><td>${d.semester || '-'}</td></tr>
+                        <tr><td>Alamat</td><td>:</td><td><b>${d.alamat || '-'}</b></td></tr>
+                        <tr><td><b>Dosen Pembimbing</b></td><td>:</td><td><b>${d.dosen1 || '-'}</b></td></tr>
+                    </table>
+
+                    <p style="font-size: 12px; margin-top: 10px; margin-bottom: 15px; text-align: justify;">
+                        untuk mengadakan Riset/Survey/Konsultasi dalam rangka persiapan penyusunan skripsi, dengan judul /topik / masalah :<br>
+                        <b>"${d.judulSkripsi || d.deskripsiSurat || '-'}"</b>
+                    </p>
+
+                    <p style="font-size: 12px; margin-bottom: 15px;">Demikian permohonan ini kami sampaikan, atas bantuan Bapak/Ibu/Saudara, kami ucapkan terima kasih.</p>
+                    <p style="font-size: 12px; font-style: italic; margin-bottom: 20px;">Wassalamu'alaikum Wr. Wb.</p>
+                `;
+            } else if (item.jenisSurat === 'Permohonan Izin Riset/Survey/Konsultasi') {
+                bodyContent = `
+                    <table style="width: 100%; font-size: 12px; margin-bottom: 12px;">
+                        <tr><td style="width: 80px;">Nomor</td><td>: B- <span id="doc-no-surat">4658</span> /Un.02/III.4/TL.01/${item.bulanKe}/${item.tahun}</td><td style="text-align: right;">Bandung, ${item.tanggalSurat}</td></tr>
+                        <tr><td>Lampiran</td><td>: -</td></tr>
+                        <tr><td>Perihal</td><td>: <b>Permohonan Izin Riset/Survey/Konsultasi</b></td></tr>
+                    </table>
+                    
+                    <p style="font-size: 12px; margin-bottom: 2px;">Kepada yth.</p>
+                    <p style="font-size: 12px; font-weight: bold; margin-bottom: 2px;">${d.kepadaYth || '-'}</p>
+                    <p style="font-size: 12px; margin-bottom: 15px;">di<br>${d.alamatTempat || '-'}</p>
+                    
+                    <p style="font-size: 12px; font-style: italic; margin-bottom: 10px;">Assalamu'alaikum Wr.Wb.,</p>
+                    <p style="font-size: 12px; margin-bottom: 10px; text-align: justify;">Dekan Fakultas Dakwah dan Komunikasi Universitas Islam Negeri (UIN) Sunan Gunung Djati Bandung, dengan ini mohon kesediaan Bapak/Ibu/Saudara untuk memberikan izin kepada :</p>
+                    
+                    <table style="width: 100%; font-size: 12px; margin-left: 25px; margin-bottom: 10px; line-height: 1.8;">
+                        <tr><td style="width: 130px;">Nama</td><td style="width: 10px;">:</td><td><b>${d.mahasiswa || '-'}</b></td></tr>
+                        <tr><td>Nomor Pokok</td><td>:</td><td>${d.nim || '-'}</td></tr>
+                        <tr><td>Jurusan</td><td>:</td><td>${d.jurusan || '-'}</td></tr>
+                        <tr><td>Semester</td><td>:</td><td>${d.semester || '-'}</td></tr>
+                        <tr><td>Alamat</td><td>:</td><td><b>${d.alamat || '-'}</b></td></tr>
+                    </table>
+
+                    <p style="font-size: 12px; margin-bottom: 5px; text-align: justify;">
+                        untuk mengadakan Riset/Survey/Konsultasi dalam rangka persiapan penyusunan skripsi, dengan judul/topik/masalah :<br>
+                        <b>"${d.judulSkripsi || d.deskripsiSurat || '-'}"</b>
+                    </p>
+
+                    <div style="font-size: 12px; margin-top: 10px; margin-bottom: 15px;">
+                        <b>Dosen Pembimbing :</b><br>
+                        1. ${d.dosen1 || '-'}<br>
+                        2. ${d.dosen2 || '-'}
+                    </div>
+
+                    <p style="font-size: 12px; margin-bottom: 15px;">Demikian permohonan ini kami sampaikan, atas bantuan Bapak/Ibu/Saudara, kami ucapkan terima kasih.</p>
+                    <p style="font-size: 12px; font-style: italic; margin-bottom: 20px;">Wassalamu'alaikum Wr. Wb.</p>
+                `;
+            } else if (item.jenisSurat === 'Surat Izin Magang/Job Training/PPM Individu') {
+                bodyContent = `
+                    <table style="width: 100%; font-size: 12px; margin-bottom: 12px;">
+                        <tr><td style="width: 80px;">Nomor</td><td>: B- <span id="doc-no-surat">4658</span> /Un.02/III.4/TL.01/${item.bulanKe}/${item.tahun}</td><td style="text-align: right;">Bandung, ${item.tanggalSurat}</td></tr>
+                        <tr><td>Lampiran</td><td>: -</td></tr>
+                        <tr><td>Perihal</td><td>: <b>Permohonan Izin<br>${d.pelaksanaan}</b></td></tr>
+                    </table>
+                    <p style="font-size: 12px; margin-bottom: 2px;">Kepada Yth.</p>
+                    <p style="font-size: 12px; font-weight: bold; margin-bottom: 2px;">${d.kepadaYth}</p>
+                    <p style="font-size: 12px; margin-bottom: 15px;">di<br>${d.alamatTempat}</p>
+                    
+                    <p style="font-size: 12px; font-style: italic; margin-bottom: 10px;">Assalamu'alaikum Wr.Wb,</p>
+                    <p style="font-size: 12px; margin-bottom: 10px;">Dekan Fakultas Dakwah dan Komunikasi Universitas Islam Negeri (UIN) Sunan Gunung Djati Bandung, dengan ini mohon kesediaan Bapak/Ibu/Saudara untuk memberikan izin kepada mahasiswa sebagai berikut:</p>
+                    
+                    <table style="width: 100%; font-size: 12px; margin-left: 15px; margin-bottom: 12px; line-height: 1.8;">
+                        <tr><td style="width: 140px;">Nama</td><td>: ${d.mahasiswa}</td></tr>
+                        <tr><td>Nomor Pokok</td><td>: ${d.nim}</td></tr>
+                        <tr><td>Jurusan</td><td>: ${d.jurusan}</td></tr>
+                        <tr><td>Semester</td><td>: ${d.semester}</td></tr>
+                        <tr><td>Alamat</td><td>: ${d.alamat}</td></tr>
+                        <tr><td>Dosen Pembimbing</td><td>: ${d.dosen1}</td></tr>
+                    </table>
+
+                    <p style="font-size: 12px; margin-bottom: 12px; line-height: 1.6;">
+                        Untuk melaksanakan <b>${d.pelaksanaan}</b> di Lembaga/Instansi/Perusahaan yang Bapak/Ibu/Saudara pimpin, dari Tanggal <b>${d.tglAwal}</b> sampai dengan Tanggal <b>${d.tglSelesai}</b>.
+                    </p>
+                    <p style="font-size: 12px; margin-bottom: 15px;">Demikian permohonan izin ini kami sampaikan, atas bantuannya kami ucapkan terima kasih.</p>
+                    <p style="font-size: 12px; font-style: italic; margin-bottom: 20px;">Wassalamu'alaikum Wr. Wb.</p>
+                `;
+            } else if (item.jenisSurat === 'Surat Izin Kelompok PMK/Magang/Job Training/PPM') {
+                let rowsMhs = '';
+                if (d.groupList && d.groupList.length > 0) {
+                    d.groupList.forEach((m, idx) => {
+                        rowsMhs += `
+                            <tr>
+                                <td style="border: 1px solid #000; padding: 5px; text-align: center;">${idx + 1}.</td>
+                                <td style="border: 1px solid #000; padding: 5px;">${m.nama}</td>
+                                <td style="border: 1px solid #000; padding: 5px; text-align: center;">${m.nim}</td>
+                                <td style="border: 1px solid #000; padding: 5px;">${m.jurusan} / ${m.semester}</td>
+                                <td style="border: 1px solid #000; padding: 5px;">${m.dosen}</td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                bodyContent = `
+                    <table style="width: 100%; font-size: 12px; margin-bottom: 12px;">
+                        <tr><td style="width: 80px;">Nomor</td><td>: B- <span id="doc-no-surat">4658</span> /Un.02/III.4/TL.01/${item.bulanKe}/${item.tahun}</td><td style="text-align: right;">Bandung, ${item.tanggalSurat}</td></tr>
+                        <tr><td>Lampiran</td><td>: -</td></tr>
+                        <tr><td>Perihal</td><td>: <b>Permohonan Izin<br>${d.pelaksanaan}</b></td></tr>
+                    </table>
+                    <p style="font-size: 12px; margin-bottom: 2px;">Kepada Yth.</p>
+                    <p style="font-size: 12px; font-weight: bold; margin-bottom: 2px;">${d.kepadaYth}</p>
+                    <p style="font-size: 12px; margin-bottom: 12px;">di<br>${d.alamatTempat}</p>
+                    
+                    <p style="font-size: 12px; font-style: italic; margin-bottom: 8px;">Assalamu'alaikum Wr.Wb,</p>
+                    <p style="font-size: 12px; margin-bottom: 10px;">Dekan Fakultas Dakwah dan Komunikasi Universitas Islam Negeri (UIN) Sunan Gunung Djati Bandung, dengan ini mohon kesediaan Bapak/Ibu/Saudara untuk memberikan izin kepada mahasiswa sebagai berikut:</p>
+                    
+                    <table style="width: 100%; font-size: 11px; border-collapse: collapse; margin-bottom: 12px;">
+                        <thead>
+                            <tr style="background-color: #f2f2f2;">
+                                <th style="border: 1px solid #000; padding: 5px; width: 30px;">No</th>
+                                <th style="border: 1px solid #000; padding: 5px;">Nama Mahasiswa</th>
+                                <th style="border: 1px solid #000; padding: 5px; width: 90px;">NIM</th>
+                                <th style="border: 1px solid #000; padding: 5px;">Jurusan/SMT</th>
+                                <th style="border: 1px solid #000; padding: 5px;">Dosen Pembimbing</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rowsMhs}</tbody>
+                    </table>
+
+                    <p style="font-size: 12px; margin-bottom: 10px; line-height: 1.6;">
+                        Untuk melaksanakan <b>${d.pelaksanaan}</b> di Lembaga/Instansi/Perusahaan yang Bapak/Ibu/Saudara pimpin.
+                    </p>
+                    <p style="font-size: 12px; margin-bottom: 12px;">Demikian permohonan izin ini kami sampaikan, atas bantuannya kami ucapkan terima kasih.</p>
+                    <p style="font-size: 12px; font-style: italic; margin-bottom: 18px;">Wassalamu'alaikum Wr. Wb.</p>
+                `;
+            } else if (item.jenisSurat === 'Surat Keterangan Aktif Kuliah (Anak PNS/TNI/POLRI)') {
+                bodyContent = `
+                    <div style="width: 100%; font-size: 11px; margin-bottom: 15px; font-family: 'Times New Roman', Times, serif;">
+                        <table style="width: 100%; font-size: 11px;">
+                            <tr>
+                                <td style="width: 90px; vertical-align: top; font-weight: bold;">LAMPIRAN</td>
+                                <td style="width: 10px; vertical-align: top;">:</td>
+                                <td style="vertical-align: top;">Surat Edaran Bersama Menteri Keuangan dan Kepala Badan Administrasi Kepegawaian Negara</td>
+                            </tr>
+                            <tr><td></td><td>:</td><td>Nomor : SE-1.38/DJA/1.0/80 (No.SE/117/80)</td></tr>
+                            <tr><td></td><td>:</td><td>Nomor : 19 / SE – 1980</td></tr>
+                            <tr><td></td><td>:</td><td>Tanggal : 07 – 07 – 1980</td></tr>
+                        </table>
+                    </div>
+
+                    <div style="text-align: center; margin-bottom: 15px;">
+                        <u style="font-size: 14px; font-weight: bold; letter-spacing: 0.5px;">SURAT KETERANGAN MASIH KULIAH</u><br>
+                        <span style="font-size: 12px;">Nomor :B- <span id="doc-no-surat">4658</span> /Un.02/III.4/PP.00.9/${item.bulanKe}/${item.tahun}</span>
+                    </div>
+
+                    <p style="font-size: 12px; margin-bottom: 8px;">Yang bertanda tangan dibawah ini :</p>
+                    
+                    <table style="width: 100%; font-size: 12px; margin-left: 15px; margin-bottom: 12px; line-height: 1.6;">
+                        <tr><td style="width: 25px;">1.</td><td style="width: 180px;">Nama</td><td style="width: 10px;">:</td><td><b>Dr. H. Dudy Imanuddin Effendi, M. Ag</b></td></tr>
+                        <tr><td>2.</td><td>N I P</td><td>:</td><td>197201012007011063</td></tr>
+                        <tr><td>3.</td><td>Pangkat / Golongan Ruang</td><td>:</td><td>Pembina Utama, IV/b</td></tr>
+                        <tr><td>4.</td><td>Jabatan</td><td>:</td><td>Wakil Dekan I Bidang Akademik</td></tr>
+                        <tr><td>5.</td><td>Pada Perguruan Tinggi</td><td>:</td><td>UIN Sunan Gunung Djati Bandung</td></tr>
+                        <tr><td></td><td>dan Lama Pelajaran</td><td>:</td><td>4 – 7 Tahun</td></tr>
+                    </table>
+
+                    <p style="font-size: 12px; margin-bottom: 8px;">Menerangkan Dengan Sesungguhnya Bahwa :</p>
+
+                    <table style="width: 100%; font-size: 12px; margin-left: 15px; margin-bottom: 12px; line-height: 1.6;">
+                        <tr><td style="width: 25px;">6.</td><td style="width: 180px;">Nama</td><td style="width: 10px;">:</td><td><b>${d.mahasiswa}</b></td></tr>
+                        <tr><td>7.</td><td>Nomor Induk Mahasiswa</td><td>:</td><td>${d.nim}</td></tr>
+                        <tr><td>8.</td><td>Pada Fakultas/Jurusan</td><td>:</td><td>Fakultas Dakwah Dan Komunikasi / ${d.jurusan}</td></tr>
+                        <tr><td>9.</td><td>Tingkat/Semester</td><td>:</td><td>${d.semester}</td></tr>
+                        <tr><td>10.</td><td>Tahun Akademik</td><td>:</td><td>${d.tahunAkademik || '2025/2026'}</td></tr>
+                    </table>
+
+                    <p style="font-size: 12px; margin-bottom: 8px;">dan bahwa orang tua / wali mahasiswa tersebut adalah :</p>
+
+                    <table style="width: 100%; font-size: 12px; margin-left: 15px; margin-bottom: 15px; line-height: 1.6;">
+                        <tr><td style="width: 25px;">11.</td><td style="width: 180px;">Nama</td><td style="width: 10px;">:</td><td><b>${d.namaOrtu || '-'}</b></td></tr>
+                        <tr><td>12.</td><td>NIP /NRP/NVP</td><td>:</td><td>${d.nipOrtu || '-'}</td></tr>
+                        <tr><td>13.</td><td>Pangkat / Golongan Ruang</td><td>:</td><td>${d.pangkatOrtu || '-'}</td></tr>
+                        <tr><td>14.</td><td>Instansi</td><td>:</td><td>${d.instansiOrtu || '-'}</td></tr>
+                    </table>
+
+                    <p style="font-size: 11px; margin-bottom: 20px; text-align: justify; line-height: 1.5;">
+                        Demikian surat keterangan ini dibuat dengan sesungguhnya dan apabila dikemudian hari tidak benar yang mengakibatkan kerugian terhadap Negara Republik Indonesia, maka saya sanggup menanggung kerugian tersebut.
+                    </p>
+                `;
+            } else if (item.jenisSurat === 'Surat Keterangan Aktif Kuliah (Non-ASN)') {
+                bodyContent = `
+                    <div style="text-align: center; margin-bottom: 22px;">
+                        <u style="font-size: 16px; font-weight: bold; letter-spacing: 1px;">SURAT KETERANGAN</u><br>
+                        <span style="font-size: 12px;">Nomor : B- <span id="doc-no-surat">4658</span> /Un.02/III.4/PP.00.9/${item.bulanKe}/${item.tahun}</span>
+                    </div>
+                    <p style="font-size: 12px; margin-bottom: 12px;">Dekan Fakultas Dakwah dan Komunikasi Universitas Islam Negeri (UIN) Sunan Gunung Djati Bandung menerangkan bahwa:</p>
+                    <table style="width: 100%; font-size: 12px; margin-bottom: 12px; line-height: 1.9;">
+                        <tr><td style="width: 130px;">Nama</td><td>: ${d.mahasiswa}</td></tr>
+                        <tr><td>Nomor Pokok</td><td>: ${d.nim}</td></tr>
+                        <tr><td>Jurusan</td><td>: ${d.jurusan}</td></tr>
+                        <tr><td>Semester</td><td>: ${d.semester}</td></tr>
+                        <tr><td>Alamat</td><td>: ${d.alamat}</td></tr>
+                    </table>
+                    <p style="font-size: 12px; margin-bottom: 10px;">adalah benar yang bersangkutan sebagai <b><i>Mahasiswa Aktif</i></b> di Fakultas Dakwah dan Komunikasi Universitas Islam Negeri (UIN) Sunan Gunung Djati Bandung.</p>
+                    <p style="font-size: 12px; margin-bottom: 18px;">surat keterangan ini dibuat untuk : <i>${d.deskripsiSurat}</i></p>
+                    <p style="font-size: 12px; margin-bottom: 30px;">Demikian surat keterangan ini dibuat dengan sebenarnya untuk dipergunakan sebagaimana mestinya.</p>
+                `;
+            }
+
+            paper.innerHTML = `
+                <!-- KOP SURAT -->
+                <div style="display: flex; align-items: center; border-bottom: 3px double #000; padding-bottom: 8px; margin-bottom: 15px;">
+                    <div style="width: 85px; text-align: left; flex-shrink: 0;">
+                        <img src="/Logo_UIN_SGD.png" style="width: 75px; height: auto;" alt="Logo UIN" onerror="this.onerror=null; this.src='/logo_uin.png';">
+                    </div>
+                    <div style="flex-grow: 1; text-align: center;">
+                        <h3 style="margin: 0; font-size: 13px; font-weight: bold; letter-spacing: 0.5px;">KEMENTERIAN AGAMA REPUBLIK INDONESIA</h3>
+                        <h3 style="margin: 0; font-size: 13px; font-weight: bold; letter-spacing: 0.5px;">UNIVERSITAS ISLAM NEGERI</h3>
+                        <h3 style="margin: 0; font-size: 13px; font-weight: bold; letter-spacing: 0.5px;">SUNAN GUNUNG DJATI BANDUNG</h3>
+                        <h4 style="margin: 2px 0; font-size: 12px; font-weight: bold; letter-spacing: 0.5px;">FAKULTAS DAKWAH DAN KOMUNIKASI</h4>
+                        <p style="margin: 0; font-size: 9.5px;">Jalan A.H. Nasution No.105 Cibiru Bandung 40614 Tlp. (022) 7810788 Fax. 7803936</p>
+                        <p style="margin: 0; font-size: 9.5px;">Website: <a href="http://fdk.uinsgd.ac.id" style="color: blue; text-decoration: underline;">http://fdk.uinsgd.ac.id</a> email: <a href="mailto:fdk@uinsgd.ac.id" style="color: blue; text-decoration: underline;">fdk@uinsgd.ac.id</a></p>
+                    </div>
+                </div>
+
+                ${bodyContent}
+
+                <div style="float: right; width: 300px; text-align: center; font-size: 12px; position: relative; margin-top: 5px;">
+                    ${isIzinSurat ? '' : `Bandung, ${item.tanggalSurat}<br>`}
+                    <span id="doc-an-dekan" style="display:none;">a.n Dekan,<br></span>
+                    <span id="doc-jabatan-pejabat">Dekan,</span><br>
+                    
+                    <div style="height: 65px; margin: 5px 0; position: relative;">
+                        <div id="interactive-ttd-box" class="resizable-ttd" style="width: 210px; height: 75px; top: -10px; left: 45px;">
+                            <img id="doc-ttd-img" src="/signatures/ttd dekan.png" style="width: 100%; height: 100%; object-fit: contain; pointer-events: none;" onerror="this.style.display='none'">
+                        </div>
+                    </div>
+
+                    <b id="doc-nama-pejabat">Prof. Dr. H. Enjang, M.Si., M.Ag.</b><br>
+                    NIP. <span id="doc-nip-pejabat">19680814199503 1003</span>
+                </div>
+                <div style="clear: both;"></div>
+
+                <div style="font-size: 10px; margin-top: 20px;">
+                    <b>Tembusan disampaikan kepada Yth:</b><br>
+                    Dekan Fakultas Dakwah dan Komunikasi UIN Sunan Gunung Djati Bandung (sebagai laporan)
+                </div>
+            `;
+        }
+
+        function applyTtdPejabat() {
+            const val = document.getElementById('select-ttd-pejabat').value;
+            const img = document.getElementById('doc-ttd-img');
+            img.style.display = 'block';
+            
+            if (val === 'dekan') {
+                if(document.getElementById('doc-an-dekan')) document.getElementById('doc-an-dekan').style.display = 'none';
+                if(document.getElementById('doc-jabatan-pejabat')) document.getElementById('doc-jabatan-pejabat').innerText = 'Dekan,';
+                if(document.getElementById('doc-nama-pejabat')) document.getElementById('doc-nama-pejabat').innerText = 'Prof. Dr. H. Enjang, M.Si., M.Ag.';
+                if(document.getElementById('doc-nip-pejabat')) document.getElementById('doc-nip-pejabat').innerText = '19680814199503 1003';
+                img.src = '/signatures/ttd dekan.png';
+            } else if (val === 'wd3') {
+                if(document.getElementById('doc-an-dekan')) {
+                    document.getElementById('doc-an-dekan').style.display = 'inline';
+                    document.getElementById('doc-an-dekan').innerHTML = 'a.n Dekan,<br>';
+                }
+                if(document.getElementById('doc-jabatan-pejabat')) document.getElementById('doc-jabatan-pejabat').innerText = 'Wakil Dekan III Bidang Kemahasiswaan';
+                if(document.getElementById('doc-nama-pejabat')) document.getElementById('doc-nama-pejabat').innerText = 'Dr. H. Asep Shodiqin, M.Ag.';
+                if(document.getElementById('doc-nip-pejabat')) document.getElementById('doc-nip-pejabat').innerText = '197512272005011004';
+                img.src = '/signatures/ttd wd 3.png';
+            } else if (val === 'wd1') {
+                if(document.getElementById('doc-an-dekan')) {
+                    document.getElementById('doc-an-dekan').style.display = 'inline';
+                    document.getElementById('doc-an-dekan').innerHTML = 'a.n Dekan,<br>';
+                }
+                if(document.getElementById('doc-jabatan-pejabat')) document.getElementById('doc-jabatan-pejabat').innerText = 'Wakil Dekan I Bidang Akademik,';
+                if(document.getElementById('doc-nama-pejabat')) document.getElementById('doc-nama-pejabat').innerText = 'Dr. H. Dudy Imanuddin Effendi, M. Ag.';
+                if(document.getElementById('doc-nip-pejabat')) document.getElementById('doc-nip-pejabat').innerText = '197201012007011063';
+                img.src = '/signatures/ttd wd 1.png';
+            }
+        }
+
+        function uploadTtdManual(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    const img = document.getElementById('doc-ttd-img');
+                    img.style.display = 'block';
+                    img.src = evt.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        async function simpanSuratResmi() {
+            const ttdBox = document.getElementById('interactive-ttd-box');
+            ttdBox.style.border = 'none';
+
+            const payload = {
+                id: document.getElementById('modal-surat-id').value,
+                nomorSurat: document.getElementById('input-no-surat').value,
+                htmlContent: document.getElementById('surat-paper').innerHTML
+            };
+
+            const res = await fetch('/api/proses-admin-surat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                alert('Surat resmi berhasil disetujui & diterbitkan!');
+                closeModal();
+            } else alert(data.message);
+        }
+
+        // --- REALTIME PRIVAT CHAT WHATSAPP STYLE ---
+        socket.on('update_surat_list', () => fetchSurat());
+
+        // Menerima Daftar Mahasiswa yang Memiliki Chat Room (Khusus Admin)
+        socket.on('update_chat_rooms', (rooms) => {
+            if (currentUser && currentUser.role === 'admin') {
+                const container = document.getElementById('admin-chat-list');
+                container.innerHTML = '';
+                
+                if (rooms.length === 0) {
+                    container.innerHTML = '<span class="text-[10px] text-slate-400 p-1">Belum ada mahasiswa yang memulai chat.</span>';
+                    return;
+                }
+
+                rooms.forEach(room => {
+                    const btn = document.createElement('button');
+                    const isActive = selectedChatRoomNim === room.nim;
+                    btn.className = `px-2.5 py-1 rounded-full text-xs font-semibold border transition ${isActive ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-200'}`;
+                    btn.innerHTML = `💬 ${room.nama} (${room.nim})`;
+                    btn.onclick = () => selectAdminChatRoom(room.nim, room.nama);
+                    container.appendChild(btn);
+                });
+            }
+        });
+
+        function selectAdminChatRoom(nim, nama) {
+            selectedChatRoomNim = nim;
+            document.getElementById('chat-target-header').innerText = `Chat dengan ${nama}`;
+            socket.emit('switch_chat_room', { nim: nim });
+        }
+
+        // Menerima histori pesan room aktif
+        socket.on('load_room_messages', (messages) => {
+            const chatBox = document.getElementById('chat-messages');
+            chatBox.innerHTML = '';
+            messages.forEach(appendMessage);
+        });
+
+        // Menerima pesan baru
+        socket.on('receive_message', (msg) => {
+            appendMessage(msg);
+        });
+
+        document.getElementById('chat-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            if (input.value.trim() && currentUser) {
+                if (currentUser.role === 'admin' && !selectedChatRoomNim) {
+                    alert('Silakan pilih mahasiswa dari daftar chat di atas terlebih dahulu!');
+                    return;
+                }
+
+                socket.emit('send_private_message', {
+                    roomNim: selectedChatRoomNim,
+                    sender: currentUser.name,
+                    role: currentUser.role,
+                    text: input.value
+                });
+                input.value = '';
+            }
+        });
+
+        function appendMessage(msg) {
+            const chatBox = document.getElementById('chat-messages');
+            const isMe = currentUser && msg.sender === currentUser.name;
+            const div = document.createElement('div');
+            div.className = `p-2 rounded max-w-[85%] text-xs ${isMe ? 'bg-blue-100 ml-auto text-right' : 'bg-white border text-left'}`;
+            div.innerHTML = `<b>${msg.sender}</b> <span class="text-[10px] text-slate-400">(${msg.time})</span><br>${msg.text}`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+</body>
+</html>
