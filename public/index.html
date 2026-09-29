@@ -167,6 +167,75 @@
                     </form>
                 </div>
 
+                <!-- RESET PASSWORD MAHASISWA - ADMIN -->
+<div id="reset-password-panel" class="hidden bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+
+    <h3 class="font-bold text-slate-800 mb-1 text-base">
+        🔑 Reset Password Mahasiswa
+    </h3>
+
+    <p class="text-xs text-slate-500 mb-4">
+        Gunakan fitur ini jika mahasiswa lupa password.
+    </p>
+
+    <div class="space-y-3">
+
+        <div>
+            <label class="text-xs text-slate-600 font-semibold">
+                NIM Mahasiswa
+            </label>
+
+            <input
+                type="text"
+                id="reset-nim"
+                placeholder="Masukkan NIM"
+                class="w-full p-2 border rounded text-xs mt-1"
+            >
+        </div>
+
+        <div>
+            <label class="text-xs text-slate-600 font-semibold">
+                Password Baru
+            </label>
+
+            <input
+                type="password"
+                id="reset-new-password"
+                placeholder="Minimal 6 karakter"
+                class="w-full p-2 border rounded text-xs mt-1"
+            >
+        </div>
+
+        <div class="border-t pt-3">
+            <p class="text-xs text-slate-500 mb-2 font-medium">
+                Verifikasi Admin
+            </p>
+
+            <input
+                type="text"
+                id="reset-admin-username"
+                placeholder="Username admin"
+                class="w-full p-2 border rounded text-xs mb-2"
+            >
+
+            <input
+                type="password"
+                id="reset-admin-password"
+                placeholder="Password admin"
+                class="w-full p-2 border rounded text-xs"
+            >
+        </div>
+
+        <button
+            type="button"
+            onclick="resetPasswordMahasiswa()"
+            class="w-full bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold py-2.5 rounded transition"
+        >
+            🔄 Reset Password
+        </button>
+
+    </div>
+</div>
                 <!-- CHAT REALTIME PRIVAT BERBASIS WHATSAPP -->
                 <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col h-[400px]">
                     <h3 class="font-bold text-slate-800 mb-2 text-sm border-b pb-2 flex justify-between items-center">
@@ -367,6 +436,7 @@
             
             if (currentUser.role === 'admin') {
                 document.getElementById('form-mahasiswa-panel').classList.add('hidden');
+                document.getElementById('reset-password-panel').classList.remove('hidden');
                 document.getElementById('surat-scope-tag').innerText = 'Semua Pengajuan Surat (Admin View)';
                 document.getElementById('admin-chat-list').classList.remove('hidden');
                 document.getElementById('chat-target-header').innerText = 'Pilih Mahasiswa';
@@ -386,6 +456,87 @@
             fetchSurat();
         }
 
+        // ==========================================
+// RESET PASSWORD MAHASISWA OLEH ADMIN
+// ==========================================
+async function resetPasswordMahasiswa() {
+
+    const nim = document.getElementById('reset-nim').value.trim();
+    const newPassword = document.getElementById('reset-new-password').value;
+    const adminUsername = document.getElementById('reset-admin-username').value.trim();
+    const adminPassword = document.getElementById('reset-admin-password').value;
+
+    // Validasi
+    if (!nim) {
+        alert('Masukkan NIM mahasiswa terlebih dahulu.');
+        return;
+    }
+
+    if (!newPassword) {
+        alert('Masukkan password baru.');
+        return;
+    }
+
+    if (newPassword.length < 6) {
+        alert('Password baru minimal 6 karakter.');
+        return;
+    }
+
+    if (!adminUsername || !adminPassword) {
+        alert('Masukkan username dan password admin untuk verifikasi.');
+        return;
+    }
+
+    const konfirmasi = confirm(
+        `Yakin ingin mereset password mahasiswa dengan NIM ${nim}?`
+    );
+
+    if (!konfirmasi) {
+        return;
+    }
+
+    try {
+
+        const res = await fetch('/api/reset-password', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                nim: nim,
+                newPassword: newPassword,
+                adminUsername: adminUsername,
+                adminPassword: adminPassword
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+
+            alert(
+                `✅ Berhasil!\n\nPassword mahasiswa ${nim} telah direset.`
+            );
+
+            // Kosongkan form
+            document.getElementById('reset-nim').value = '';
+            document.getElementById('reset-new-password').value = '';
+
+        } else {
+
+            alert(`❌ ${data.message}`);
+
+        }
+
+    } catch (error) {
+
+        console.error('Error reset password:', error);
+
+        alert(
+            '❌ Gagal menghubungi server. Periksa koneksi atau Railway.'
+        );
+    }
+}
         // Helper Dropdown Prodi & Semester
         const optionsProdi = `
             <option value="Bimbingan Konseling Islam">Bimbingan Konseling Islam</option>

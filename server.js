@@ -149,6 +149,93 @@ app.post('/api/login', (req, res) => {
     }
 });
 
+// Endpoint Reset Password Mahasiswa oleh Admin
+app.post('/api/reset-password', async (req, res) => {
+    try {
+        const { nim, newPassword, adminUsername, adminPassword } = req.body;
+
+        // Validasi input
+        if (!nim || !newPassword || !adminUsername || !adminPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'NIM, password baru, dan verifikasi admin wajib diisi.'
+            });
+        }
+
+        // Verifikasi akun admin
+        const adminUser = USERS.find(
+            u =>
+                u.username === adminUsername &&
+                u.password === adminPassword &&
+                u.role === 'admin'
+        );
+
+        if (!adminUser) {
+            return res.status(401).json({
+                success: false,
+                message: 'Verifikasi admin gagal. Username atau password admin salah.'
+            });
+        }
+
+        // Validasi password baru
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'Password baru minimal 6 karakter.'
+            });
+        }
+
+        // Cari mahasiswa di Firestore
+        const userRef = db.collection('users').doc(String(nim));
+        const userDoc = await userRef.get();
+
+        if (!userDoc.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Mahasiswa dengan NIM tersebut tidak ditemukan.'
+            });
+        }
+
+        // Update password di Firestore
+        await userRef.update({
+            password: newPassword
+        });
+
+        // Update password di memory USERS
+        const userIndex = USERS.findIndex(
+            u => String(u.username) === String(nim)
+        );
+
+        if (userIndex !== -1) {
+            USERS[userIndex].password = newPassword;
+        } else {
+            const userData = userDoc.data();
+
+            USERS.push({
+                ...userData,
+                username: userData.username || nim,
+                password: newPassword,
+                role: 'mahasiswa'
+            });
+        }
+
+        console.log(`✅ Password mahasiswa ${nim} berhasil direset oleh admin.`);
+
+        return res.json({
+            success: true,
+            message: `Password mahasiswa ${nim} berhasil direset.`
+        });
+
+    } catch (error) {
+        console.error('Error reset password:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Gagal mereset password mahasiswa.'
+        });
+    }
+});
+
 // Endpoint 1: Mahasiswa Mengajukan Surat (Simpan ke Firestore)
 app.post('/api/ajukan-surat', async (req, res) => {
     try {
