@@ -34,6 +34,33 @@ const sigDir = path.join(__dirname, 'signatures');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
+// ===============================
+// EMBED TTD SEBAGAI BASE64
+// ===============================
+function getSignatureBase64(filename) {
+    const filePath = path.join(sigDir, filename);
+
+    try {
+        if (!fs.existsSync(filePath)) {
+            console.error(`❌ TTD tidak ditemukan: ${filePath}`);
+            return '';
+        }
+
+        const base64 = fs.readFileSync(filePath).toString('base64');
+
+        console.log(`✅ TTD terbaca: ${filename}`);
+
+        return `data:image/png;base64,${base64}`;
+    } catch (error) {
+        console.error(`❌ Gagal membaca TTD ${filename}:`, error);
+        return '';
+    }
+}
+
+const ttdDekan = getSignatureBase64('ttd dekan.png');
+const ttdWd1 = getSignatureBase64('ttd wd 1.png');
+const ttdWd3 = getSignatureBase64('ttd wd 3.png');
+
 // Middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -188,6 +215,14 @@ app.post('/api/proses-admin-surat', async (req, res) => {
     try {
         const { id, nomorSurat, htmlContent } = req.body;
         
+        // Ganti alamat file TTD menjadi Base64
+let processedHtmlContent = htmlContent || '';
+
+processedHtmlContent = processedHtmlContent
+    .replace(/(?:https?:\/\/[^"' ]+)?\/?signatures\/ttd(?:%20|\s)dekan\.png/gi, ttdDekan)
+    .replace(/(?:https?:\/\/[^"' ]+)?\/?signatures\/ttd(?:%20|\s)wd(?:%20|\s)1\.png/gi, ttdWd1)
+    .replace(/(?:https?:\/\/[^"' ]+)?\/?signatures\/ttd(?:%20|\s)wd(?:%20|\s)3\.png/gi, ttdWd3);
+
         const suratRef = db.collection('surat_keluar').doc(String(id));
         const suratDoc = await suratRef.get();
 
@@ -234,7 +269,7 @@ app.post('/api/proses-admin-surat', async (req, res) => {
                     <button onclick="window.print()" style="padding: 10px 20px; background: #16a34a; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px;">🖨️ Cetak Surat / Simpan ke PDF (A4)</button>
                 </div>
                 <div class="page-container">
-                    ${htmlContent}
+                    ${processedHtmlContent}
                 </div>
             </body>
             </html>
