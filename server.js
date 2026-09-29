@@ -663,9 +663,24 @@ app.post("/api/proses-admin-surat", async (req, res) => {
         // -------------------------------------------------
 
         const fileName =
-            `SURAT_RESMI_${id}.html`;
+    `SURAT_RESMI_${id}.html`;
 
-        const fullDocumentHtml = `
+const suratData = suratDoc.data();
+
+const jenis = suratData.jenisSurat || suratData.jenis || '';
+
+const isF4 =
+    jenis === 'Surat Keterangan Aktif Kuliah (Anak PNS/TNI/POLRI)';
+
+const paperSize = isF4
+    ? '215.9mm 330.2mm'
+    : 'A4 portrait';
+
+const maxWidth = isF4
+    ? '215.9mm'
+    : '210mm';
+
+const fullDocumentHtml = `
 <!DOCTYPE html>
 <html lang="id">
 
@@ -682,43 +697,46 @@ app.post("/api/proses-admin-surat", async (req, res) => {
 
     <style>
 
-        @page {
-
-            size: A4 portrait;
-
-            margin:
-                15mm
-                20mm
-                15mm
-                20mm;
+       @page {
+    size: ${paperSize};
+    margin:
+        15mm
+        20mm
+        15mm
+        20mm;
+}
         }
 
         body {
-
-            font-family:
-                'Times New Roman',
-                Times,
-                serif;
-
-            color: #000;
-
-            line-height: 1.5;
-
-            background: #fff;
-
-            margin: 0;
-
-            padding: 0;
-        }
-
+    font-family:
+        'Times New Roman',
+        Times,
+        serif;
+    font-size: 12pt;
+    color: #000;
+    line-height: 1.15;
+    background: #fff;
+    margin: 0;
+    padding: 0;
+}
         .page-container {
+    width: 100%;
+    max-width: ${maxWidth};
+    margin: auto;
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt;
+    line-height: 1.15;
+}
 
-            width: 100%;
-
-            max-width: 210mm;
-
-            margin: auto;
-        }
+.page-container p,
+.page-container table,
+.page-container td,
+.page-container th,
+.page-container li,
+.page-container span {
+    font-size: 12pt !important;
+    line-height: 1.15 !important;
+}
 
         @media print {
 
@@ -774,7 +792,7 @@ app.post("/api/proses-admin-surat", async (req, res) => {
                 font-size: 14px;
             "
         >
-            🖨️ Cetak Surat / Simpan ke PDF (A4)
+            🖨️ Cetak Surat / Simpan ke PDF (${isF4 ? 'F4' : 'A4'})
         </button>
 
     </div>

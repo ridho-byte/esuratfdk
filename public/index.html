@@ -10,17 +10,38 @@
 
     <style>
         .paper-doc {
-            font-family: 'Times New Roman', Times, serif;
-            background: white;
-            padding: 35px 45px;
-            border: 1px solid #cbd5e1;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            color: black;
-            line-height: 1.4;
-            width: 100%;
-            box-sizing: border-box;
-            position: relative;
-        }
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 12pt !important;
+    background: white;
+    color: black;
+
+    /* Ukuran kertas A4 */
+    width: 210mm;
+    min-height: 297mm;
+
+    /* Margin halaman */
+    padding: 15mm 20mm;
+
+    box-sizing: border-box;
+    position: relative;
+
+    line-height: 1.15 !important;
+
+    border: 1px solid #cbd5e1;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+    margin: 0 auto;
+}
+
+.paper-doc p,
+.paper-doc table,
+.paper-doc td,
+.paper-doc th,
+.paper-doc li,
+.paper-doc span {
+    font-size: 12pt !important;
+    line-height: 1.15 !important;
+}
 
         .resizable-ttd {
             touch-action: none;
@@ -845,10 +866,39 @@ async function resetPasswordMahasiswa() {
 
                 let actionBtn = '-';
                 if (currentUser.role === 'admin') {
-                    actionBtn = item.status === 'Diproses'
-                        ? `<button onclick="openAdminModal(${item.id})" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2.5 py-1 rounded">Verifikasi & TTD</button>`
-                        : `<a href="${item.signedFileUrl}" target="_blank" class="text-xs text-blue-600 underline font-semibold">Lihat Hasil</a>`;
-                } else {
+
+    if (item.status === 'Diproses') {
+
+        actionBtn = `
+            <button
+                onclick="openAdminModal(${item.id})"
+                class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-2.5 py-1 rounded">
+                Verifikasi & TTD
+            </button>
+        `;
+
+    } else {
+
+        actionBtn = `
+            <div class="flex gap-2 items-center">
+                <a
+                    href="${item.signedFileUrl}"
+                    target="_blank"
+                    class="text-xs text-blue-600 underline font-semibold">
+                    Lihat Hasil
+                </a>
+
+                <button
+                    onclick="openEditSuratModal(${item.id})"
+                    class="bg-amber-500 hover:bg-amber-600 text-white text-xs px-2.5 py-1 rounded font-semibold">
+                    ✏️ Edit
+                </button>
+            </div>
+        `;
+
+    }
+
+} else {
                     actionBtn = item.signedFileUrl 
                         ? `<a href="${item.signedFileUrl}" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2.5 py-1 rounded font-bold">Unduh / Cetak Surat (A4)</a>`
                         : `<span class="text-xs text-slate-400">Menunggu TTD</span>`;
@@ -864,6 +914,56 @@ async function resetPasswordMahasiswa() {
             });
         }
 
+        async function openEditSuratModal(id) {
+
+    const res = await fetch('/api/surat');
+    const list = await res.json();
+
+    activeSuratData = list.find(s => s.id == id);
+
+    if (!activeSuratData) {
+        alert('Data surat tidak ditemukan.');
+        return;
+    }
+
+    // Isi ID surat
+    document.getElementById('modal-surat-id').value = activeSuratData.id;
+
+    // Isi nomor surat yang sudah ada
+    document.getElementById('input-no-surat').value =
+        activeSuratData.nomorSurat || '';
+
+    // Auto-select pejabat sesuai jenis surat
+    if (activeSuratData.jenisSurat === 'Surat Keterangan Verval') {
+
+        document.getElementById('select-ttd-pejabat').value = 'dekan';
+
+    } else if (
+        activeSuratData.jenisSurat === 'Surat Keterangan Kelakuan Baik' ||
+        activeSuratData.jenisSurat === 'Surat Keterangan Tidak Menerima Beasiswa' ||
+        activeSuratData.jenisSurat === 'Surat Rekomendasi'
+    ) {
+
+        document.getElementById('select-ttd-pejabat').value = 'wd3';
+
+    } else {
+
+        document.getElementById('select-ttd-pejabat').value = 'wd1';
+
+    }
+
+    // Render ulang surat
+    renderTemplatePaper(activeSuratData);
+
+    // Pasang TTD
+    applyTtdPejabat();
+
+    // Buka modal
+    document.getElementById('admin-modal').classList.remove('hidden');
+
+    // Tandai mode edit
+    window.editingSurat = true;
+}
         async function openAdminModal(id) {
             const res = await fetch('/api/surat');
             const list = await res.json();
@@ -892,7 +992,15 @@ async function resetPasswordMahasiswa() {
         }
 
         function closeModal() { document.getElementById('admin-modal').classList.add('hidden'); }
-        function updateNomorLive() { document.getElementById('doc-no-surat').innerText = document.getElementById('input-no-surat').value || '...'; }
+        function updateNomorLive() {
+    const nomor = document.getElementById('input-no-surat').value || '...';
+
+    const nomorElements = document.querySelectorAll('#doc-no-surat');
+
+    nomorElements.forEach(el => {
+        el.innerText = nomor;
+    });
+}
 
         // GENERATE TEMPLATE DOKUMEN DALAM BENTUK HTML RESMI
         function renderTemplatePaper(item) {
@@ -1279,9 +1387,9 @@ async function resetPasswordMahasiswa() {
                         <img src="/Logo_UIN_SGD.png" style="width: 75px; height: auto;" alt="Logo UIN" onerror="this.onerror=null; this.src='/logo_uin.png';">
                     </div>
                     <div style="flex-grow: 1; text-align: center;">
-                        <h3 style="margin: 0; font-size: 13px; font-weight: bold; letter-spacing: 0.5px;">KEMENTERIAN AGAMA REPUBLIK INDONESIA</h3>
-                        <h3 style="margin: 0; font-size: 13px; font-weight: bold; letter-spacing: 0.5px;">UNIVERSITAS ISLAM NEGERI</h3>
-                        <h3 style="margin: 0; font-size: 13px; font-weight: bold; letter-spacing: 0.5px;">SUNAN GUNUNG DJATI BANDUNG</h3>
+                        <h3 style="margin: 0; font-size: 14pt; font-weight: bold; letter-spacing: 0.5px;">KEMENTERIAN AGAMA REPUBLIK INDONESIA</h3>
+                        <h3 style="margin: 0; font-size: 14pt; font-weight: bold; letter-spacing: 0.5px;">UNIVERSITAS ISLAM NEGERI</h3>
+                        <h3 style="margin: 0; font-size: 14pt; font-weight: bold; letter-spacing: 0.5px;">SUNAN GUNUNG DJATI BANDUNG</h3>
                         <h4 style="margin: 2px 0; font-size: 12px; font-weight: bold; letter-spacing: 0.5px;">FAKULTAS DAKWAH DAN KOMUNIKASI</h4>
                         <p style="margin: 0; font-size: 9.5px;">Jalan A.H. Nasution No.105 Cibiru Bandung 40614 Tlp. (022) 7810788 Fax. 7803936</p>
                         <p style="margin: 0; font-size: 9.5px;">Website: <a href="http://fdk.uinsgd.ac.id" style="color: blue; text-decoration: underline;">http://fdk.uinsgd.ac.id</a> email: <a href="mailto:fdk@uinsgd.ac.id" style="color: blue; text-decoration: underline;">fdk@uinsgd.ac.id</a></p>
@@ -1306,10 +1414,15 @@ async function resetPasswordMahasiswa() {
                 </div>
                 <div style="clear: both;"></div>
 
-                <div style="font-size: 10px; margin-top: 20px;">
-                    <b>Tembusan disampaikan kepada Yth:</b><br>
-                    Dekan Fakultas Dakwah dan Komunikasi UIN Sunan Gunung Djati Bandung (sebagai laporan)
-                </div>
+               <div style="
+    font-size: 12pt;
+    margin-top: 20px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+">
+    <b>Tembusan disampaikan kepada Yth:</b><br>
+    Dekan Fakultas Dakwah dan Komunikasi UIN Sunan Gunung Djati Bandung (sebagai laporan)
+</div>
             `;
         }
 
