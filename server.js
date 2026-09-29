@@ -1,4 +1,4 @@
-const { initializeApp, cert } = require("firebase-admin/app");
+const { initializeApp, applicationDefault } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const express = require("express");
 const fileUpload = require("express-fileupload");
@@ -15,20 +15,20 @@ const io = new Server(server);
 // FIREBASE
 // =====================================================
 
-// Membaca kredensial dari environment variable Railway
-// Jika tidak ada, gunakan serviceAccountKey.json saat lokal.
+// =====================================================
+// FIREBASE
+// =====================================================
 
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    : require("./serviceAccountKey.json");
-
-console.log("Firebase Project ID:", serviceAccount.project_id);
+// Firebase App Hosting menggunakan Application Default Credentials.
+// Saat lokal, gunakan serviceAccountKey.json melalui GOOGLE_APPLICATION_CREDENTIALS.
 
 initializeApp({
-    credential: cert(serviceAccount)
+    credential: applicationDefault()
 });
 
 const db = getFirestore();
+
+console.log("🔥 Firebase Admin berhasil diinisialisasi");
 
 // =====================================================
 // FOLDER SIGNATURE
@@ -1323,7 +1323,7 @@ server.listen(
         );
 
         console.log(
-            `🔥 Firebase Project: ${serviceAccount.project_id}`
+            "🔥 Firebase Admin berhasil diinisialisasi"
         );
 
         console.log(

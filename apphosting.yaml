@@ -1,7 +1,3 @@
-service:
-  run:
-    cpu: 1
-    memory: 512Mi
-  env:
-    - variable: PORT
-      value: 3000
+runConfig:
+  cpu: 1
+  memoryMiB: 512
