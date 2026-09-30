@@ -439,33 +439,78 @@ app.get("/api/surat", async (req, res) => {
                 );
         }
 
-        const snapshot =
-            await queryRef.get();
+       const snapshot =
+    await queryRef.get();
 
-        const suratList = [];
+const suratList = [];
 
-        snapshot.forEach(doc => {
+snapshot.forEach(doc => {
 
-            const data = doc.data();
+    const data = doc.data();
 
-            suratList.push({
+    // Ambil waktu asli surat masuk
+    let createdAtTime = 0;
 
-                ...data,
+    if (
+        data.createdAt &&
+        data.createdAt.toDate
+    ) {
+        createdAtTime =
+            data.createdAt.toDate().getTime();
+    }
 
-                createdAt:
-                    data.createdAt &&
-                    data.createdAt.toDate
-                        ? data.createdAt
-                            .toDate()
-                            .toLocaleString("id-ID")
-                        : data.createdAt
-            });
+    suratList.push({
 
-        });
+        ...data,
 
-        return res.json(
-            suratList
-        );
+        // Simpan sementara untuk sorting
+        _createdAtTime:
+            createdAtTime
+    });
+
+});
+
+// ================================================
+// URUTKAN TERBARU → TERLAMA
+// ================================================
+
+suratList.sort(
+    (a, b) =>
+        b._createdAtTime -
+        a._createdAtTime
+);
+
+// ================================================
+// HAPUS FIELD BANTUAN SEBELUM DIKIRIM
+// ================================================
+
+const result =
+    suratList.map(surat => {
+
+        const {
+            _createdAtTime,
+            ...data
+        } = surat;
+
+        return {
+
+            ...data,
+
+            createdAt:
+                data.createdAt &&
+                data.createdAt.toDate
+                    ? data.createdAt
+                        .toDate()
+                        .toLocaleString("id-ID")
+                    : data.createdAt
+
+        };
+
+    });
+
+return res.json(
+    result
+);
 
     } catch (error) {
 
