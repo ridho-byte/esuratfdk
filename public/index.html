@@ -227,26 +227,7 @@
             >
         </div>
 
-        <div class="border-t pt-3">
-            <p class="text-xs text-slate-500 mb-2 font-medium">
-                Verifikasi Admin
-            </p>
-
-            <input
-                type="text"
-                id="reset-admin-username"
-                placeholder="Username admin"
-                class="w-full p-2 border rounded text-xs mb-2"
-            >
-
-            <input
-                type="password"
-                id="reset-admin-password"
-                placeholder="Password admin"
-                class="w-full p-2 border rounded text-xs"
-            >
-        </div>
-
+      
         <button
             type="button"
             onclick="resetPasswordMahasiswa()"
@@ -462,6 +443,7 @@
                 document.getElementById('admin-chat-list').classList.remove('hidden');
                 document.getElementById('chat-target-header').innerText = 'Pilih Mahasiswa';
             } else {
+                document.getElementById('reset-password-panel').classList.add('hidden');
                 renderDynamicFormFields();
                 document.getElementById('surat-scope-tag').innerText = 'Arsip Surat Saya';
                 document.getElementById('chat-target-header').innerText = 'Chat dengan Admin TU';
@@ -480,14 +462,11 @@
         // ==========================================
 // RESET PASSWORD MAHASISWA OLEH ADMIN
 // ==========================================
-async function resetPasswordMahasiswa() {
 
+async function resetPasswordMahasiswa() {
     const nim = document.getElementById('reset-nim').value.trim();
     const newPassword = document.getElementById('reset-new-password').value;
-    const adminUsername = document.getElementById('reset-admin-username').value.trim();
-    const adminPassword = document.getElementById('reset-admin-password').value;
 
-    // Validasi
     if (!nim) {
         alert('Masukkan NIM mahasiswa terlebih dahulu.');
         return;
@@ -503,61 +482,40 @@ async function resetPasswordMahasiswa() {
         return;
     }
 
-    if (!adminUsername || !adminPassword) {
-        alert('Masukkan username dan password admin untuk verifikasi.');
-        return;
-    }
-
     const konfirmasi = confirm(
         `Yakin ingin mereset password mahasiswa dengan NIM ${nim}?`
     );
 
-    if (!konfirmasi) {
-        return;
-    }
+    if (!konfirmasi) return;
 
     try {
-
-        const res = await fetch('/api/reset-password', {
-            method: 'POST',
+       const res = await fetch('/api/reset-password', {
+    method: 'POST',
+    credentials: 'same-origin',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 nim: nim,
-                newPassword: newPassword,
-                adminUsername: adminUsername,
-                adminPassword: adminPassword
+                newPassword: newPassword
             })
         });
 
         const data = await res.json();
 
         if (data.success) {
-
-            alert(
-                `✅ Berhasil!\n\nPassword mahasiswa ${nim} telah direset.`
-            );
-
-            // Kosongkan form
+            alert(`Berhasil! Password mahasiswa ${nim} telah direset.`);
             document.getElementById('reset-nim').value = '';
             document.getElementById('reset-new-password').value = '';
-
         } else {
-
-            alert(`❌ ${data.message}`);
-
+            alert(data.message || 'Gagal mereset password.');
         }
-
     } catch (error) {
-
         console.error('Error reset password:', error);
-
-        alert(
-            '❌ Gagal menghubungi server. Periksa koneksi atau Railway.'
-        );
+        alert('Gagal menghubungi server. Periksa koneksi internet.');
     }
 }
+
         // Helper Dropdown Prodi & Semester
         const optionsProdi = `
             <option value="Bimbingan Konseling Islam">Bimbingan Konseling Islam</option>

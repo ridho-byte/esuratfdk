@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const { initializeApp, applicationDefault } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const express = require("express");
@@ -6,10 +8,58 @@ const path = require("path");
 const http = require("http");
 const fs = require("fs");
 const { Server } = require("socket.io");
+const bcrypt = require("bcrypt");
+const session = require("express-session");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+
+app.set("trust proxy", 1);
+
+const sessionMiddleware = session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 1000 * 60 * 60 * 8
+  }
+});
+
+app.use(sessionMiddleware);
+io.engine.use(sessionMiddleware);
+
+function requireAuth(req, res, next) {
+    if (!req.session?.user) {
+        return res.status(401).json({
+            success: false,
+            message: "Silakan login terlebih dahulu."
+        });
+    }
+
+    next();
+}
+
+function requireAdmin(req, res, next) {
+    if (!req.session?.user) {
+        return res.status(401).json({
+            success: false,
+            message: "Silakan login terlebih dahulu."
+        });
+    }
+
+    if (req.session.user.role !== "admin") {
+        return res.status(403).json({
+            success: false,
+            message: "Akses khusus administrator."
+        });
+    }
+
+    next();
+}
 
 // =====================================================
 // FIREBASE
@@ -23,10 +73,12 @@ const io = new Server(server);
 // Saat lokal, gunakan serviceAccountKey.json melalui GOOGLE_APPLICATION_CREDENTIALS.
 
 initializeApp({
-    credential: applicationDefault()
+    credential: applicationDefault(),
+    projectId: "esuratfdk-web"
 });
 
 const db = getFirestore();
+
 
 console.log("🔥 Firebase Admin berhasil diinisialisasi");
 
@@ -91,12 +143,7 @@ app.use("/signatures", express.static(sigDir));
 // =====================================================
 
 const USERS = [
-    {
-        username: "fdkuinbandung",
-        password: "uinbandung",
-        role: "admin",
-        name: "Administrator TU FDK"
-    },
+    
     {
         username: "1244060082",
         password: "123",
@@ -112,15 +159,10 @@ const USERS = [
 // ENDPOINT REGISTER MAHASISWA
 // =====================================================
 
+
 app.post("/api/register", async (req, res) => {
     try {
-        const {
-            nama,
-            nim,
-            jurusan,
-            email,
-            password
-        } = req.body;
+        const { nama, nim, jurusan, email, password } = req.body;
 
         if (!nim || !password || !nama) {
             return res.status(400).json({
@@ -129,31 +171,42 @@ app.post("/api/register", async (req, res) => {
             });
         }
 
+        if (String(password).length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: "Password minimal 6 karakter."
+            });
+        }
+
+        const cleanNim = String(nim).trim();
+        const userRef = db.collection("users").doc(cleanNim);
+        const userDoc = await userRef.get();
+
         const existingUser = USERS.find(
-            u => u.username === nim
+            u => String(u.username) === cleanNim
         );
 
-        if (existingUser) {
+        if (userDoc.exists || existingUser) {
             return res.status(400).json({
                 success: false,
                 message: "NIM tersebut sudah terdaftar! Silakan login."
             });
         }
 
+        const hashedPassword = await bcrypt.hash(password, 10);
+
         const newUser = {
-            username: nim,
-            password: password,
-            name: nama,
-            nim: nim,
-            jurusan: jurusan,
-            email: email,
+            username: cleanNim,
+            password: hashedPassword,
+            name: String(nama).trim(),
+            nim: cleanNim,
+            jurusan: jurusan || "",
+            email: email || "",
             role: "mahasiswa"
         };
 
+        await userRef.set(newUser);
         USERS.push(newUser);
-
-        // Simpan user ke Firestore
-        await db.collection("users").doc(nim).set(newUser);
 
         return res.json({
             success: true,
@@ -170,90 +223,130 @@ app.post("/api/register", async (req, res) => {
     }
 });
 
-// =====================================================
-// ENDPOINT LOGIN
-// =====================================================
 
-app.post("/api/login", (req, res) => {
+app.post("/api/login", async (req, res) => {
+    try {
+        const { username, password } = req.body;
 
-    const {
-        username,
-        password
-    } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Username/NIM dan password wajib diisi."
+            });
+        }
 
-    const user = USERS.find(
-        u =>
-            u.username === username &&
-            u.password === password
-    );
+        const cleanUsername = String(username).trim();
 
-    if (user) {
+        // Login admin: sementara masih memakai data admin lama.
+        const adminUsername = process.env.ADMIN_USERNAME;
+const adminPassword = process.env.ADMIN_PASSWORD;
 
-        res.json({
-            success: true,
-            user: {
-                name: user.name,
-                role: user.role,
-                username: user.username,
-                nim: user.nim || "",
-                jurusan: user.jurusan || ""
+if (
+    adminUsername &&
+    adminPassword &&
+    cleanUsername === adminUsername &&
+    password === adminPassword
+) {
+            req.session.user = {
+    username: adminUsername,
+    role: "admin",
+    name: "Administrator TU FDK"
+};
+
+            return req.session.save(err => {
+                if (err) {
+                    console.error("Gagal menyimpan session:", err);
+                    return res.status(500).json({
+                        success: false,
+                        message: "Gagal membuat sesi login."
+                    });
+                }
+
+                return res.json({
+                    success: true,
+                    user: req.session.user
+                });
+            });
+        }
+
+        // Login mahasiswa: ambil data terbaru dari Firestore.
+        const userRef = db.collection("users").doc(cleanUsername);
+        const userDoc = await userRef.get();
+
+        if (!userDoc.exists) {
+            return res.status(401).json({
+                success: false,
+                message: "Username/NIM atau password salah."
+            });
+        }
+
+        const userData = userDoc.data();
+
+        if (userData.role !== "mahasiswa") {
+            return res.status(401).json({
+                success: false,
+                message: "Username/NIM atau password salah."
+            });
+        }
+
+        const passwordValid = await bcrypt.compare(
+            String(password),
+            userData.password
+        );
+
+        if (!passwordValid) {
+            return res.status(401).json({
+                success: false,
+                message: "Username/NIM atau password salah."
+            });
+        }
+
+        req.session.user = {
+            username: userData.username || cleanUsername,
+            role: "mahasiswa",
+            name: userData.name || "",
+            nim: userData.nim || cleanUsername,
+            jurusan: userData.jurusan || ""
+        };
+
+        return req.session.save(err => {
+            if (err) {
+                console.error("Gagal menyimpan session:", err);
+                return res.status(500).json({
+                    success: false,
+                    message: "Gagal membuat sesi login."
+                });
             }
+
+            return res.json({
+                success: true,
+                user: req.session.user
+            });
         });
 
-    } else {
+    } catch (error) {
+        console.error("Error login:", error);
 
-        res.status(401).json({
+        return res.status(500).json({
             success: false,
-            message: "Username/NIM atau password salah!"
+            message: "Terjadi kesalahan saat login."
         });
-
     }
 });
 
-// =====================================================
-// ENDPOINT RESET PASSWORD MAHASISWA OLEH ADMIN
-// =====================================================
 
-app.post("/api/reset-password", async (req, res) => {
-
+app.post("/api/reset-password", requireAdmin, async (req, res) => {
     try {
+        const nim = String(req.body.nim || "").trim();
+        const newPassword = String(req.body.newPassword || "");
 
-        const {
-            nim,
-            newPassword,
-            adminUsername,
-            adminPassword
-        } = req.body;
-
-        // Validasi input
-        if (
-            !nim ||
-            !newPassword ||
-            !adminUsername ||
-            !adminPassword
-        ) {
+        if (!nim || !newPassword) {
             return res.status(400).json({
                 success: false,
-                message: "NIM, password baru, dan verifikasi admin wajib diisi."
+                message: "NIM dan password baru wajib diisi."
             });
         }
 
-        // Verifikasi akun admin
-        const adminUser = USERS.find(
-            u =>
-                u.username === adminUsername &&
-                u.password === adminPassword &&
-                u.role === "admin"
-        );
-
-        if (!adminUser) {
-            return res.status(401).json({
-                success: false,
-                message: "Verifikasi admin gagal. Username atau password admin salah."
-            });
-        }
-
-        // Validasi password baru
         if (newPassword.length < 6) {
             return res.status(400).json({
                 success: false,
@@ -261,62 +354,28 @@ app.post("/api/reset-password", async (req, res) => {
             });
         }
 
-        // Cari mahasiswa di Firestore
-        const userRef = db
-            .collection("users")
-            .doc(String(nim));
-
+        const userRef = db.collection("users").doc(nim);
         const userDoc = await userRef.get();
 
-        if (!userDoc.exists) {
+        if (!userDoc.exists || userDoc.data().role !== "mahasiswa") {
             return res.status(404).json({
                 success: false,
-                message: "Mahasiswa dengan NIM tersebut tidak ditemukan."
+                message: "Data mahasiswa tidak ditemukan."
             });
         }
 
-        // Update password Firestore
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
         await userRef.update({
-            password: newPassword
+            password: hashedPassword
         });
-
-        // Update password di memory USERS
-        const userIndex = USERS.findIndex(
-            u => String(u.username) === String(nim)
-        );
-
-        if (userIndex !== -1) {
-
-            USERS[userIndex].password = newPassword;
-
-        } else {
-
-            const userData = userDoc.data();
-
-            USERS.push({
-                ...userData,
-                username: userData.username || nim,
-                password: newPassword,
-                role: "mahasiswa"
-            });
-        }
-
-        console.log(
-            `✅ Password mahasiswa ${nim} berhasil direset oleh admin.`
-        );
 
         return res.json({
             success: true,
-            message: `Password mahasiswa ${nim} berhasil direset.`
+            message: "Password mahasiswa berhasil direset."
         });
-
     } catch (error) {
-
-        console.error(
-            "Error reset password:",
-            error
-        );
-
+        console.error("Error reset password:", error);
         return res.status(500).json({
             success: false,
             message: "Gagal mereset password mahasiswa."
@@ -324,292 +383,220 @@ app.post("/api/reset-password", async (req, res) => {
     }
 });
 
+
 // =====================================================
 // ENDPOINT 1
 // MAHASISWA MENGAJUKAN SURAT
 // =====================================================
 
-app.post("/api/ajukan-surat", async (req, res) => {
 
+app.post("/api/ajukan-surat", requireAuth, async (req, res) => {
     try {
-
         const payload = req.body;
+        const user = req.session.user;
+
+        // Pengajuan surat hanya untuk mahasiswa.
+        if (user.role !== "mahasiswa") {
+            return res.status(403).json({
+                success: false,
+                message: "Hanya mahasiswa yang dapat mengajukan surat."
+            });
+        }
 
         const suratId = Date.now().toString();
 
+        // Identitas diambil dari sesi login, bukan dari request browser.
+        const nim = String(user.nim || user.username);
+        const mahasiswa = user.name || "Mahasiswa";
+
+        if (!payload.jenisSurat) {
+            return res.status(400).json({
+                success: false,
+                message: "Jenis surat wajib dipilih."
+            });
+        }
+
         const newSurat = {
-
             id: suratId,
-
-            mahasiswa:
-                payload.mahasiswa || "Mahasiswa",
-
-            nim:
-                payload.nim || "-",
-
-            jenisSurat:
-                payload.jenisSurat,
-
-            nomorSurat:
-                "...",
-
-            bulanKe:
-                payload.bulanKe || "09",
-
-            tahun:
-                payload.tahun || "2026",
-
-            tanggalSurat:
-                payload.tanggalSurat ||
-                "28 September 2026",
-
-            formData:
-                payload,
-
-            signedFileUrl:
-                null,
-
-            status:
-                "Diproses",
-
-            createdAt:
-                FieldValue.serverTimestamp()
+            mahasiswa,
+            nim,
+            jenisSurat: payload.jenisSurat,
+            nomorSurat: "...",
+            bulanKe: payload.bulanKe || "09",
+            tahun: payload.tahun || "2026",
+            tanggalSurat: payload.tanggalSurat || "28 September 2026",
+            formData: {
+                ...payload,
+                mahasiswa,
+                nim
+            },
+            signedFileUrl: null,
+            status: "Diproses",
+            createdAt: FieldValue.serverTimestamp()
         };
 
-        // Simpan ke Firestore
-        await db
-            .collection("surat_keluar")
+        await db.collection("surat_keluar")
             .doc(suratId)
             .set(newSurat);
 
-        // Beritahu admin
+        // Beritahu admin dan mahasiswa yang sedang terhubung.
         io.emit("update_surat_list");
 
         return res.json({
             success: true,
-            message:
-                "Permohonan surat berhasil dikirim ke Admin!",
+            message: "Permohonan surat berhasil dikirim ke Admin!",
             data: {
                 ...newSurat,
-                createdAt:
-                    new Date().toLocaleString("id-ID")
+                createdAt: new Date().toLocaleString("id-ID")
             }
         });
 
     } catch (error) {
-
-        console.error(
-            "Error ajukan surat:",
-            error
-        );
+        console.error("Error ajukan surat:", error);
 
         return res.status(500).json({
             success: false,
-            message:
-                "Gagal mengajukan surat ke database."
+            message: "Gagal mengajukan surat ke database."
         });
     }
 });
+
 
 // =====================================================
 // ENDPOINT 2
 // AMBIL DAFTAR SURAT
 // =====================================================
 
-app.get("/api/surat", async (req, res) => {
 
+app.get("/api/surat", requireAuth, async (req, res) => {
     try {
+        const user = req.session.user;
 
-        const {
-            nim
-        } = req.query;
+        let queryRef = db.collection("surat_keluar");
 
-        let queryRef =
-            db.collection("surat_keluar");
+        // Mahasiswa hanya boleh melihat surat miliknya sendiri.
+        // NIM diambil dari session, bukan query browser.
+        if (user.role === "mahasiswa") {
+            const nimLogin = String(user.nim || user.username);
 
-        // Jika mahasiswa mengirim NIM,
-        // hanya surat milik NIM tersebut yang dikembalikan.
-        if (nim) {
-
-            queryRef =
-                queryRef.where(
-                    "nim",
-                    "==",
-                    nim
-                );
+            queryRef = queryRef.where("nim", "==", nimLogin);
+        } else if (user.role !== "admin") {
+            return res.status(403).json({
+                success: false,
+                message: "Anda tidak memiliki akses melihat daftar surat."
+            });
         }
 
-       const snapshot =
-    await queryRef.get();
+        const snapshot = await queryRef.get();
+        const suratList = [];
 
-const suratList = [];
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            let createdAtTime = 0;
 
-snapshot.forEach(doc => {
+            if (data.createdAt && data.createdAt.toDate) {
+                createdAtTime = data.createdAt.toDate().getTime();
+            }
 
-    const data = doc.data();
+            suratList.push({
+                ...data,
+                _createdAtTime: createdAtTime
+            });
+        });
 
-    // Ambil waktu asli surat masuk
-    let createdAtTime = 0;
+        // Urutkan terbaru ke terlama.
+        suratList.sort(
+            (a, b) => b._createdAtTime - a._createdAtTime
+        );
 
-    if (
-        data.createdAt &&
-        data.createdAt.toDate
-    ) {
-        createdAtTime =
-            data.createdAt.toDate().getTime();
-    }
+        // Hapus field bantuan sebelum dikirim ke browser.
+        const result = suratList.map((surat) => {
+            const { _createdAtTime, ...data } = surat;
 
-    suratList.push({
+            return {
+                ...data,
+                createdAt:
+                    data.createdAt && data.createdAt.toDate
+                        ? data.createdAt.toDate().toLocaleString("id-ID")
+                        : data.createdAt
+            };
+        });
 
-        ...data,
-
-        // Simpan sementara untuk sorting
-        _createdAtTime:
-            createdAtTime
-    });
-
-});
-
-// ================================================
-// URUTKAN TERBARU → TERLAMA
-// ================================================
-
-suratList.sort(
-    (a, b) =>
-        b._createdAtTime -
-        a._createdAtTime
-);
-
-// ================================================
-// HAPUS FIELD BANTUAN SEBELUM DIKIRIM
-// ================================================
-
-const result =
-    suratList.map(surat => {
-
-        const {
-            _createdAtTime,
-            ...data
-        } = surat;
-
-        return {
-
-            ...data,
-
-            createdAt:
-                data.createdAt &&
-                data.createdAt.toDate
-                    ? data.createdAt
-                        .toDate()
-                        .toLocaleString("id-ID")
-                    : data.createdAt
-
-        };
-
-    });
-
-return res.json(
-    result
-);
+        return res.json(result);
 
     } catch (error) {
-
-        console.error(
-            "Error ambil surat:",
-            error
-        );
+        console.error("Error ambil surat:", error);
 
         return res.status(500).json({
             success: false,
-            message:
-                "Gagal mengambil data surat."
+            message: "Gagal mengambil data surat."
         });
     }
 });
+
 
 // =====================================================
 // ENDPOINT MEMBUKA SURAT RESMI
 // SURAT DIAMBIL DARI FIRESTORE
 // =====================================================
 
-app.get("/api/surat-file/:id", async (req, res) => {
 
+app.get("/api/surat-file/:id", requireAuth, async (req, res) => {
     try {
+        const id = String(req.params.id);
+        const user = req.session.user;
 
-        const {
-            id
-        } = req.params;
+        // Pastikan surat tercatat di koleksi surat keluar.
+        const suratDoc = await db
+            .collection("surat_keluar")
+            .doc(id)
+            .get();
 
-        const fileDoc =
-            await db
-                .collection("surat_files")
-                .doc(String(id))
-                .get();
+        if (!suratDoc.exists) {
+            return res.status(404).send("Surat tidak ditemukan.");
+        }
+
+        const surat = suratDoc.data();
+
+        // Mahasiswa hanya boleh membuka surat miliknya sendiri.
+        if (
+            user.role === "mahasiswa" &&
+            String(surat.nim) !== String(user.nim || user.username)
+        ) {
+            return res.status(403).send("Anda tidak memiliki akses ke surat ini.");
+        }
+
+        if (user.role !== "admin" && user.role !== "mahasiswa") {
+            return res.status(403).send("Akses ditolak.");
+        }
+
+        const fileDoc = await db
+            .collection("surat_files")
+            .doc(id)
+            .get();
 
         if (!fileDoc.exists) {
-
-            return res.status(404).send(`
-                <!DOCTYPE html>
-                <html lang="id">
-                <head>
-                    <meta charset="UTF-8">
-                    <title>Surat Tidak Ditemukan</title>
-                </head>
-                <body>
-                    <h2>Surat tidak ditemukan</h2>
-                    <p>File surat dengan ID ${id} tidak tersedia.</p>
-                </body>
-                </html>
-            `);
+            return res.status(404).send("File surat tidak ditemukan.");
         }
 
-        const data =
-            fileDoc.data();
+        const data = fileDoc.data();
 
         if (!data.htmlContent) {
-
-            return res.status(404).send(`
-                <h2>Isi surat tidak tersedia</h2>
-                <p>Data HTML surat tidak ditemukan.</p>
-            `);
+            return res.status(404).send("Isi surat tidak tersedia.");
         }
 
-        res.setHeader(
-            "Content-Type",
-            "text/html; charset=utf-8"
-        );
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Cache-Control", "private, no-store");
 
-        res.setHeader(
-            "Cache-Control",
-            "no-cache"
-        );
-
-        return res.send(
-            data.htmlContent
-        );
+        return res.send(data.htmlContent);
 
     } catch (error) {
+        console.error("Error mengambil file surat:", error);
 
-        console.error(
-            "Error mengambil file surat:",
-            error
-        );
-
-        return res.status(500).send(`
-            <!DOCTYPE html>
-            <html lang="id">
-            <head>
-                <meta charset="UTF-8">
-                <title>Error</title>
-            </head>
-            <body>
-                <h2>Gagal membuka surat</h2>
-                <p>Terjadi kesalahan saat mengambil surat.</p>
-            </body>
-            </html>
-        `);
+        return res.status(500).send("Gagal membuka surat.");
     }
 });
+
 
 // =====================================================
 // ENDPOINT 3
@@ -619,7 +606,7 @@ app.get("/api/surat-file/:id", async (req, res) => {
 // TIDAK MENGGUNAKAN FIREBASE STORAGE
 // =====================================================
 
-app.post("/api/proses-admin-surat", async (req, res) => {
+app.post("/api/proses-admin-surat", requireAdmin, async (req, res) => {
 
     try {
 
@@ -1006,300 +993,179 @@ const fullDocumentHtml = `
 // REALTIME CHAT PRIVATE
 // =====================================================
 
+
 io.on("connection", (socket) => {
+    const user = socket.request.session?.user;
 
-    console.log(
-        "🔌 Socket terhubung:",
-        socket.id
-    );
+    // Tolak koneksi tanpa session login yang valid.
+    if (
+        !user ||
+        !["admin", "mahasiswa"].includes(user.role) ||
+        !user.username ||
+        (user.role === "mahasiswa" && !user.nim)
+    ) {
+        socket.disconnect(true);
+        return;
+    }
 
-    // =================================================
-    // USER JOIN CHAT SESSION
-    // =================================================
+    const isAdmin = user.role === "admin";
+    const userNim = String(user.nim || user.username);
 
-    socket.on(
-        "join_chat_session",
-        async (data) => {
+    console.log("Socket terhubung:", socket.id, user.role);
 
-            try {
-
-                if (data.role === "mahasiswa") {
-
-                    const nim =
-                        data.nim;
-
-                    socket.join(
-                        `room_${nim}`
-                    );
-
-                    const chatDocRef =
-                        db
-                            .collection("chats")
-                            .doc(nim);
-
-                    const chatDoc =
-                        await chatDocRef.get();
-
-                    let chatData = {
-
-                        nama:
-                            data.name ||
-                            "Mahasiswa",
-
-                        messages: []
-                    };
-
-                    if (chatDoc.exists) {
-
-                        chatData =
-                            chatDoc.data();
-
-                    } else {
-
-                        await chatDocRef.set(
-                            chatData
-                        );
-                    }
-
-                    socket.emit(
-                        "load_room_messages",
-                        chatData.messages || []
-                    );
-
-                    io.emit(
-                        "update_chat_rooms",
-                        await getRoomListAsync()
-                    );
-
-                } else if (
-                    data.role === "admin"
-                ) {
-
-                    socket.join(
-                        "admin_room"
-                    );
-
-                    socket.emit(
-                        "update_chat_rooms",
-                        await getRoomListAsync()
-                    );
-                }
-
-            } catch (error) {
-
-                console.error(
-                    "Error join chat:",
-                    error
-                );
-            }
-        }
-    );
-
-    // =================================================
-    // ADMIN SWITCH CHAT ROOM
-    // =================================================
-
-    socket.on(
-        "switch_chat_room",
-        async (data) => {
-
-            try {
-
-                const roomNim =
-                    data.nim;
-
-                if (!roomNim) {
-
-                    socket.emit(
-                        "load_room_messages",
-                        []
-                    );
-
-                    return;
-                }
-
-                const chatDocRef =
-                    db
-                        .collection("chats")
-                        .doc(roomNim);
-
-                const chatDoc =
-                    await chatDocRef.get();
-
-                if (chatDoc.exists) {
-
-                    socket.emit(
-                        "load_room_messages",
-                        chatDoc.data().messages || []
-                    );
-
-                } else {
-
-                    socket.emit(
-                        "load_room_messages",
-                        []
-                    );
-                }
-
-            } catch (error) {
-
-                console.error(
-                    "Error switch chat room:",
-                    error
-                );
+    // Identitas ditentukan server, bukan data browser.
+    socket.on("join_chat_session", async () => {
+        try {
+            if (isAdmin) {
+                socket.join("admin_room");
 
                 socket.emit(
-                    "load_room_messages",
-                    []
-                );
-            }
-        }
-    );
-
-    // =================================================
-    // SEND PRIVATE MESSAGE
-    // =================================================
-
-    socket.on(
-        "send_private_message",
-        async (data) => {
-
-            try {
-
-                const {
-                    roomNim,
-                    sender,
-                    role,
-                    text
-                } = data;
-
-                if (!roomNim) {
-                    return;
-                }
-
-                if (!text || !String(text).trim()) {
-                    return;
-                }
-
-                const msg = {
-
-                    sender:
-                        sender,
-
-                    role:
-                        role,
-
-                    text:
-                        text,
-
-                    time:
-                        new Date().toLocaleTimeString(
-                            "id-ID",
-                            {
-                                hour: "2-digit",
-                                minute: "2-digit"
-                            }
-                        )
-                };
-
-                const chatDocRef =
-                    db
-                        .collection("chats")
-                        .doc(roomNim);
-
-                const chatDoc =
-                    await chatDocRef.get();
-
-                let chatData = {
-
-                    nama:
-                        "Mahasiswa",
-
-                    messages: []
-                };
-
-                if (chatDoc.exists) {
-
-                    chatData =
-                        chatDoc.data();
-
-                } else {
-
-                    const userObj =
-                        USERS.find(
-                            u =>
-                                u.username ===
-                                roomNim
-                        );
-
-                    chatData.nama =
-                        userObj
-                            ? userObj.name
-                            : "Mahasiswa";
-                }
-
-                if (!Array.isArray(chatData.messages)) {
-
-                    chatData.messages = [];
-                }
-
-                chatData.messages.push(
-                    msg
-                );
-
-                await chatDocRef.set(
-                    chatData
-                );
-
-                // Broadcast ke mahasiswa
-                io.to(
-                    `room_${roomNim}`
-                ).emit(
-                    "receive_message",
-                    msg
-                );
-
-                // Broadcast ke admin
-                io.to(
-                    "admin_room"
-                ).emit(
-                    "receive_message",
-                    msg
-                );
-
-                // Update daftar room
-                io.emit(
                     "update_chat_rooms",
                     await getRoomListAsync()
                 );
-
-            } catch (error) {
-
-                console.error(
-                    "Error send private message:",
-                    error
-                );
+                return;
             }
-        }
-    );
 
-    // =================================================
-    // DISCONNECT
-    // =================================================
+            socket.join(`room_${userNim}`);
 
-    socket.on(
-        "disconnect",
-        () => {
+            const chatDocRef = db.collection("chats").doc(userNim);
+            const chatDoc = await chatDocRef.get();
 
-            console.log(
-                "🔌 Socket terputus:",
-                socket.id
+            let chatData;
+
+            if (chatDoc.exists) {
+                chatData = chatDoc.data();
+            } else {
+                chatData = {
+                    nama: user.name || "Mahasiswa",
+                    messages: []
+                };
+
+                await chatDocRef.set(chatData);
+            }
+
+            socket.emit(
+                "load_room_messages",
+                Array.isArray(chatData.messages) ? chatData.messages : []
             );
 
+            // Daftar seluruh ruang hanya dikirim kepada admin.
+            io.to("admin_room").emit(
+                "update_chat_rooms",
+                await getRoomListAsync()
+            );
+        } catch (error) {
+            console.error("Error join chat:", error);
         }
-    );
+    });
 
+    // Hanya admin boleh membaca riwayat chat mahasiswa lain.
+    socket.on("switch_chat_room", async (data = {}) => {
+        if (!isAdmin) {
+            socket.emit("load_room_messages", []);
+            return;
+        }
+
+        try {
+            const roomNim = String(data.nim || "").trim();
+
+            if (!roomNim || roomNim.length > 100) {
+                socket.emit("load_room_messages", []);
+                return;
+            }
+
+            const chatDoc = await db.collection("chats")
+                .doc(roomNim)
+                .get();
+
+            const messages = chatDoc.exists
+                ? chatDoc.data().messages
+                : [];
+
+            socket.emit(
+                "load_room_messages",
+                Array.isArray(messages) ? messages : []
+            );
+        } catch (error) {
+            console.error("Error switch chat room:", error);
+            socket.emit("load_room_messages", []);
+        }
+    });
+
+    // Pengirim dan role selalu berasal dari session.
+    socket.on("send_private_message", async (data = {}) => {
+        try {
+            const roomNim = isAdmin
+                ? String(data.roomNim || "").trim()
+                : userNim;
+
+            const messageText = String(data.text || "").trim();
+
+            if (
+                !roomNim ||
+                roomNim.length > 100 ||
+                !messageText ||
+                messageText.length > 5000
+            ) {
+                return;
+            }
+
+            const msg = {
+                sender: user.name || (
+                    isAdmin ? "Administrator TU FDK" : "Mahasiswa"
+                ),
+                role: user.role,
+                text: messageText,
+                time: new Date().toLocaleTimeString("id-ID", {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                })
+            };
+
+            const chatDocRef = db.collection("chats").doc(roomNim);
+            const chatDoc = await chatDocRef.get();
+
+            let chatData = chatDoc.exists
+                ? chatDoc.data()
+                : { nama: "", messages: [] };
+
+            if (!Array.isArray(chatData.messages)) {
+                chatData.messages = [];
+            }
+
+            // Untuk chat baru, ambil nama dari data mahasiswa di Firestore.
+            if (!chatData.nama) {
+                const studentDoc = await db.collection("users")
+                    .doc(roomNim)
+                    .get();
+
+                chatData.nama = studentDoc.exists
+                    ? (studentDoc.data().name || "Mahasiswa")
+                    : "Mahasiswa";
+            }
+
+            chatData.messages.push(msg);
+
+            await chatDocRef.set(chatData);
+
+            io.to(`room_${roomNim}`).emit("receive_message", msg);
+            io.to("admin_room").emit("receive_message", msg);
+
+            // Daftar ruang hanya untuk admin.
+            io.to("admin_room").emit(
+                "update_chat_rooms",
+                await getRoomListAsync()
+            );
+        } catch (error) {
+            console.error("Error send private message:", error);
+        }
+    });
+
+    socket.on("disconnect", () => {
+        console.log("Socket terputus:", socket.id);
+    });
 });
+
 
 // =====================================================
 // AMBIL DAFTAR ROOM CHAT
@@ -1362,8 +1228,7 @@ app.get(
             message:
                 "SIRAT server is running",
 
-            firebaseProject:
-                serviceAccount.project_id
+            firebaseProject: "esuratfdk-web"
         });
 
     }
