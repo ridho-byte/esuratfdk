@@ -248,7 +248,7 @@ app.post("/api/login", async (req, res) => {
             usernameCocok: cleanUsername === adminUsername,
             passwordCocok: password === adminPassword
         });
-        
+
 if (
     adminUsername &&
     adminPassword &&
@@ -297,17 +297,40 @@ if (
             });
         }
 
-        const passwordValid = await bcrypt.compare(
-            String(password),
-            userData.password
-        );
+        
+const storedPassword = String(userData.password || "");
+let passwordValid = false;
 
-        if (!passwordValid) {
-            return res.status(401).json({
-                success: false,
-                message: "Username/NIM atau password salah."
-            });
-        }
+if (/^\$2[aby]\$/.test(storedPassword)) {
+  // Akun yang password-nya sudah berupa hash bcrypt
+  passwordValid = await bcrypt.compare(
+    String(password),
+    storedPassword
+  );
+} else {
+  // Akun lama yang password-nya masih berupa teks biasa
+  passwordValid = String(password) === storedPassword;
+
+  // Jika benar, langsung migrasikan password menjadi hash bcrypt
+  if (passwordValid) {
+    const hashedPassword = await bcrypt.hash(
+      String(password),
+      10
+    );
+
+    await userRef.update({
+      password: hashedPassword
+    });
+  }
+}
+
+if (!passwordValid) {
+  return res.status(401).json({
+    success: false,
+    message: "Username atau password salah."
+  });
+}
+
 
         req.session.user = {
             username: userData.username || cleanUsername,
