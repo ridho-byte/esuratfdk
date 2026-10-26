@@ -239,8 +239,16 @@ app.post("/api/login", async (req, res) => {
 
         // Login admin: sementara masih memakai data admin lama.
         const adminUsername = process.env.ADMIN_USERNAME;
-const adminPassword = process.env.ADMIN_PASSWORD;
-
+        const adminPassword = process.env.ADMIN_PASSWORD;
+        
+        // Pemeriksaan sementara: tidak menampilkan kredensial asli.
+        console.log("Cek konfigurasi admin:", {
+            usernameAda: Boolean(adminUsername),
+            passwordAda: Boolean(adminPassword),
+            usernameCocok: cleanUsername === adminUsername,
+            passwordCocok: password === adminPassword
+        });
+        
 if (
     adminUsername &&
     adminPassword &&
