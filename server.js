@@ -72,16 +72,26 @@ function requireAdmin(req, res, next) {
 // Firebase App Hosting menggunakan Application Default Credentials.
 // Saat lokal, gunakan serviceAccountKey.json melalui GOOGLE_APPLICATION_CREDENTIALS.
 
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-  : require("./serviceAccountKey.json");
+let firebaseApp;
 
-initializeApp({
-  credential: cert(serviceAccount),
-  projectId: "esuratfdk-web"
-});
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  firebaseApp = initializeApp({
+    credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+    projectId: "esuratfdk-web"
+  });
+} else if (fs.existsSync(path.join(__dirname, "serviceAccountKey.json"))) {
+  firebaseApp = initializeApp({
+    credential: cert(require("./serviceAccountKey.json")),
+    projectId: "esuratfdk-web"
+  });
+} else {
+  // Untuk Firebase App Hosting
+  firebaseApp = initializeApp({
+    projectId: "esuratfdk-web"
+  });
+}
 
-const db = getFirestore();
+const db = getFirestore(firebaseApp);
 
 
 console.log("🔥 Firebase Admin berhasil diinisialisasi");
@@ -1251,51 +1261,25 @@ async function getRoomListAsync() {
 // HEALTH CHECK
 // =====================================================
 
-app.get(
-    "/health",
-    (req, res) => {
 
-        res.status(200).json({
-
-            status:
-                "OK",
-
-            message:
-                "SIRAT server is running",
-
-            firebaseProject: "esuratfdk-web"
-        });
-
-    }
-);
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    message: "SIRAT server is running",
+    firebaseProject: "esuratfdk-web"
+  });
+});
 
 // =====================================================
 // SERVER
 // =====================================================
 
-const PORT =
-    process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
-server.listen(
-    PORT,
-    "0.0.0.0",
-    () => {
+console.log("🔥 Firebase Admin berhasil diinisialisasi");
+console.log("☁️ Penyimpanan surat: Firestore");
+console.log("🖊️ TTD: Base64 embedded");
 
-        console.log(
-            `🚀 KEREN: Server sukses berjalan di port ${PORT}`
-        );
-
-        console.log(
-            "🔥 Firebase Admin berhasil diinisialisasi"
-        );
-
-        console.log(
-            "☁️ Penyimpanan surat: Firestore"
-        );
-
-        console.log(
-            "🖊️ TTD: Base64 embedded"
-        );
-
-    }
-);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log("🚀 Server berjalan di port " + PORT);
+});
