@@ -393,15 +393,25 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
+
                 const data = await res.json();
+
                 if (data.success) {
                     currentUser = data.user;
+
+                    // Sambungkan ulang Socket.IO setelah login berhasil.
+                    socket.disconnect();
+                    socket.connect();
+
                     setupDashboard();
-                } else { alert(data.message); }
-            } catch(err) {
+                } else {
+                    alert(data.message);
+                }
+            } catch (err) {
                 alert('Gagal login! Periksa koneksi server.');
             }
         });
+
 
         // HANDLE REGISTER MAHASISWA
         document.getElementById('register-form').addEventListener('submit', async (e) => {

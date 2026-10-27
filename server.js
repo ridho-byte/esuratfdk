@@ -1,6 +1,6 @@
 require("dotenv").config();
 
-const { initializeApp, applicationDefault } = require("firebase-admin/app");
+const { initializeApp, cert } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const express = require("express");
 const fileUpload = require("express-fileupload");
@@ -72,9 +72,13 @@ function requireAdmin(req, res, next) {
 // Firebase App Hosting menggunakan Application Default Credentials.
 // Saat lokal, gunakan serviceAccountKey.json melalui GOOGLE_APPLICATION_CREDENTIALS.
 
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
+  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+  : require("./serviceAccountKey.json");
+
 initializeApp({
-    credential: applicationDefault(),
-    projectId: "esuratfdk-web"
+  credential: cert(serviceAccount),
+  projectId: "esuratfdk-web"
 });
 
 const db = getFirestore();
